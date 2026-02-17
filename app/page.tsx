@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { postJson } from "@/lib/api";
 
 type QuotaCell = { id: string; label: string; pop: number; share: number; quota: number };
 type DimensionResult = { base: number; cells: QuotaCell[]; notes?: string[] };
@@ -15,9 +16,9 @@ const ALL_DIMS = [
   "sex",
   "age_group",
   "county",
-  "region5",
+  "region",
   "tallinn_districts",
-  "settlement_type4",
+  "settlement_type",
   "education",
   "nationality",
   "birth_country",
@@ -33,7 +34,7 @@ export default function Page() {
   const [sampleN, setSampleN] = useState(1000);
   const [step, setStep] = useState(10);
 
-  const [dims, setDims] = useState<string[]>(["sex", "age_group", "county", "region5"]);
+  const [dims, setDims] = useState<string[]>(["sex", "age_group", "county", "region"]);
 
   const [data, setData] = useState<QuotaResponse | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -59,17 +60,7 @@ export default function Page() {
     setData(null);
     setLoading(true);
     try {
-      if (!API_BASE) throw new Error("Missing NEXT_PUBLIC_API_BASE in .env.local");
-
-      const r = await fetch(`${API_BASE}/v1/quotas/calculate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", accept: "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      const js = await r.json();
-      if (!r.ok) throw new Error(JSON.stringify(js, null, 2));
-
+      const js = await postJson<QuotaResponse>("/v1/quotas/calculate", payload);
       setData(js);
     } catch (e: any) {
       setErr(e?.message ?? String(e));
