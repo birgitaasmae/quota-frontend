@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { postJson } from "@/lib/api";
+import * as XLSX from "xlsx";
 
 type QuotaCell = { id: string; label: string; pop: number; share: number; quota: number };
 type DimensionResult = { base: number; cells: QuotaCell[]; notes?: string[] };
@@ -75,6 +76,31 @@ export default function Page() {
     } finally {
       setLoading(false);
     }
+  }
+
+  function downloadExcel() {
+    if (!data) return;
+
+    const rows: Array<Record<string, any>> = [];
+
+    for (const [dim, res] of Object.entries(data.results)) {
+      for (const c of res.cells) {
+        rows.push({
+          Dimension: dim,
+          Label: c.label,
+          Population: c.pop,
+          SharePercent: Number((c.share * 100).toFixed(2)),
+          Quota: c.quota,
+        });
+      }
+    }
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Quotas");
+
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+    XLSX.writeFile(wb, `quota_results_${stamp}.xlsx`);
   }
 
   return (
@@ -162,6 +188,23 @@ export default function Page() {
           >
             {loading ? "Calculating..." : "Calculate"}
           </button>
+
+          {data && (
+            <button
+              onClick={downloadExcel}
+              style={{
+                padding: "10px 14px",
+                borderRadius: 10,
+                border: "1px solid #111",
+                background: "#fff",
+                color: "#111",
+                cursor: "pointer",
+                fontWeight: 600,
+              }}
+            >
+              Download Excel
+            </button>
+          )}
 
           <span style={{ fontSize: 12, opacity: 0.7 }}>
             Backend: <code>{API_BASE ?? "(missing NEXT_PUBLIC_API_BASE)"}</code>
