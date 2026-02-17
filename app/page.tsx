@@ -1,65 +1,231 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { useMemo, useState } from "react";
+
+type QuotaCell = { id: string; label: string; pop: number; share: number; quota: number };
+type DimensionResult = { base: number; cells: QuotaCell[]; notes?: string[] };
+type QuotaResponse = {
+  population_total: number;
+  sample_n: number;
+  results: Record<string, DimensionResult>;
+  meta?: any;
+};
+
+const ALL_DIMS = [
+  "sex",
+  "age_group",
+  "county",
+  "region5",
+  "tallinn_districts",
+  "settlement_type4",
+  "education",
+  "nationality",
+  "birth_country",
+  "citizenship_country",
+] as const;
+
+export default function Page() {
+  const API_BASE = process.env.NEXT_PUBLIC_API_BASE;
+
+  const [year, setYear] = useState(2024);
+  const [ageFrom, setAgeFrom] = useState(18);
+  const [ageTo, setAgeTo] = useState(64);
+  const [sampleN, setSampleN] = useState(1000);
+  const [step, setStep] = useState(10);
+
+  const [dims, setDims] = useState<string[]>(["sex", "age_group", "county", "region5"]);
+
+  const [data, setData] = useState<QuotaResponse | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const payload = useMemo(
+    () => ({
+      reference: { year },
+      age_band: { from: ageFrom, to: ageTo },
+      sample_n: sampleN,
+      age_grouping_years: step,
+      dimensions: dims,
+    }),
+    [year, ageFrom, ageTo, sampleN, step, dims]
+  );
+
+  function toggleDim(d: string) {
+    setDims((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]));
+  }
+
+  async function calculate() {
+    setErr(null);
+    setData(null);
+    setLoading(true);
+    try {
+      if (!API_BASE) throw new Error("Missing NEXT_PUBLIC_API_BASE in .env.local");
+
+      const r = await fetch(`${API_BASE}/v1/quotas/calculate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", accept: "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const js = await r.json();
+      if (!r.ok) throw new Error(JSON.stringify(js, null, 2));
+
+      setData(js);
+    } catch (e: any) {
+      setErr(e?.message ?? String(e));
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <main style={{ padding: 24, maxWidth: 1100, margin: "0 auto", fontFamily: "system-ui" }}>
+      <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 16 }}>Quota Builder</h1>
+
+      <div style={{ border: "1px solid #ddd", borderRadius: 12, padding: 16, marginBottom: 16 }}>
+        <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))" }}>
+          <label>
+            <div style={{ fontSize: 12, opacity: 0.7 }}>Year</div>
+            <input type="number" value={year} onChange={(e) => setYear(+e.target.value)} style={{ width: "100%" }} />
+          </label>
+
+          <label>
+            <div style={{ fontSize: 12, opacity: 0.7 }}>Age from</div>
+            <input type="number" value={ageFrom} onChange={(e) => setAgeFrom(+e.target.value)} style={{ width: "100%" }} />
+          </label>
+
+          <label>
+            <div style={{ fontSize: 12, opacity: 0.7 }}>Age to</div>
+            <input type="number" value={ageTo} onChange={(e) => setAgeTo(+e.target.value)} style={{ width: "100%" }} />
+          </label>
+
+          <label>
+            <div style={{ fontSize: 12, opacity: 0.7 }}>Sample N</div>
+            <input type="number" value={sampleN} onChange={(e) => setSampleN(+e.target.value)} style={{ width: "100%" }} />
+          </label>
+
+          <label>
+            <div style={{ fontSize: 12, opacity: 0.7 }}>Age grouping</div>
+            <select value={step} onChange={(e) => setStep(+e.target.value)} style={{ width: "100%" }}>
+              <option value={1}>1 (every age)</option>
+              <option value={5}>5</option>
+              <option value={10}>10</option>
+              <option value={15}>15</option>
+            </select>
+          </label>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        <div style={{ marginTop: 14 }}>
+          <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}>Dimensions</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {ALL_DIMS.map((d) => (
+              <button
+                key={d}
+                onClick={() => toggleDim(d)}
+                style={{
+                  padding: "6px 10px",
+                  borderRadius: 999,
+                  border: "1px solid #ccc",
+                  background: dims.includes(d) ? "#111" : "#fff",
+                  color: dims.includes(d) ? "#fff" : "#111",
+                  cursor: "pointer",
+                  fontSize: 12,
+                }}
+              >
+                {d}
+              </button>
+            ))}
+          </div>
         </div>
-      </main>
-    </div>
+
+        <div style={{ display: "flex", gap: 10, marginTop: 14, alignItems: "center" }}>
+          <button
+            onClick={calculate}
+            disabled={loading}
+            style={{
+              padding: "10px 14px",
+              borderRadius: 10,
+              border: "1px solid #111",
+              background: loading ? "#666" : "#111",
+              color: "#fff",
+              cursor: loading ? "not-allowed" : "pointer",
+              fontWeight: 600,
+            }}
+          >
+            {loading ? "Calculating..." : "Calculate"}
+          </button>
+
+          <span style={{ fontSize: 12, opacity: 0.7 }}>
+            Backend: <code>{API_BASE ?? "(missing .env.local)"}</code>
+          </span>
+        </div>
+
+        {err && (
+          <pre style={{ marginTop: 12, background: "#fff4f4", border: "1px solid #f0c2c2", padding: 12, borderRadius: 10, overflow: "auto" }}>
+            {err}
+          </pre>
+        )}
+      </div>
+
+      {data && (
+        <>
+          <div style={{ border: "1px solid #ddd", borderRadius: 12, padding: 16, marginBottom: 16 }}>
+            <div style={{ fontWeight: 700 }}>Population total: {data.population_total.toLocaleString()}</div>
+            <div style={{ fontSize: 13, opacity: 0.8 }}>Sample N: {data.sample_n.toLocaleString()}</div>
+          </div>
+
+          {Object.entries(data.results).map(([dim, res]) => (
+            <div key={dim} style={{ border: "1px solid #ddd", borderRadius: 12, padding: 16, marginBottom: 16 }}>
+              <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 6 }}>{dim}</div>
+
+              {res.notes?.length ? (
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}>Notes / warnings</div>
+                  <ul style={{ margin: 0, paddingLeft: 18 }}>
+                    {res.notes.map((n, i) => (
+                      <li key={i} style={{ fontSize: 13, marginBottom: 4 }}>
+                        {n}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              <div style={{ fontSize: 13, opacity: 0.8, marginBottom: 8 }}>Base: {res.base.toLocaleString()}</div>
+
+              <div style={{ overflow: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead>
+                    <tr>
+                      <th style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: "6px 8px" }}>Label</th>
+                      <th style={{ textAlign: "right", borderBottom: "1px solid #ddd", padding: "6px 8px" }}>Pop</th>
+                      <th style={{ textAlign: "right", borderBottom: "1px solid #ddd", padding: "6px 8px" }}>Share</th>
+                      <th style={{ textAlign: "right", borderBottom: "1px solid #ddd", padding: "6px 8px" }}>Quota</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {res.cells.map((c) => (
+                      <tr key={c.id}>
+                        <td style={{ borderBottom: "1px solid #f0f0f0", padding: "6px 8px" }}>{c.label}</td>
+                        <td style={{ borderBottom: "1px solid #f0f0f0", padding: "6px 8px", textAlign: "right" }}>{c.pop.toLocaleString()}</td>
+                        <td style={{ borderBottom: "1px solid #f0f0f0", padding: "6px 8px", textAlign: "right" }}>{(c.share * 100).toFixed(2)}%</td>
+                        <td style={{ borderBottom: "1px solid #f0f0f0", padding: "6px 8px", textAlign: "right", fontWeight: 700 }}>{c.quota}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ))}
+
+          {data.meta?.errors && Object.keys(data.meta.errors).length > 0 && (
+            <div style={{ border: "1px solid #ddd", borderRadius: 12, padding: 16 }}>
+              <div style={{ fontWeight: 700, marginBottom: 6 }}>Some dimensions failed</div>
+              <pre style={{ margin: 0, overflow: "auto" }}>{JSON.stringify(data.meta.errors, null, 2)}</pre>
+            </div>
+          )}
+        </>
+      )}
+    </main>
   );
 }
