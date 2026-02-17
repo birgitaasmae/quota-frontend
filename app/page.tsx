@@ -13,7 +13,7 @@ type QuotaResponse = {
   meta?: any;
 };
 
-const DIMENSIONS = [
+const DIMENSIONS: Array<{ key: string; label: string }> = [
   { key: "sex", label: "Sex" },
   { key: "age_group", label: "Age Group" },
   { key: "county", label: "County" },
@@ -26,10 +26,10 @@ const DIMENSIONS = [
   { key: "citizenship_country", label: "Citizenship Country" },
 ];
 
-function prettyKey(k: string) {
-  const found = DIMENSIONS.find((d) => d.key === k);
-  if (found) return found.label;
-  return k.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+function prettyDim(key: string) {
+  const hit = DIMENSIONS.find((d) => d.key === key);
+  if (hit) return hit.label;
+  return key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 export default function Page() {
@@ -70,6 +70,7 @@ export default function Page() {
     setData(null);
     setLoading(true);
     try {
+      // If user filters by men/women and "sex" isn't selected, auto-add it so they can see it.
       if ((sexFilter === "men" || sexFilter === "women") && !dims.includes("sex")) {
         setDims((prev) => [...prev, "sex"]);
       }
@@ -86,15 +87,15 @@ export default function Page() {
   function downloadExcel() {
     if (!data) return;
 
-    const rows: any[] = [];
+    const rows: Array<Record<string, any>> = [];
 
     for (const [dim, res] of Object.entries(data.results)) {
       for (const c of res.cells) {
         rows.push({
-          Dimension: prettyKey(dim),
+          Dimension: prettyDim(dim),
           Label: c.label,
           Population: c.pop,
-          SharePercent: Number((c.share * 100).toFixed(2)),
+          "Share %": Number((c.share * 100).toFixed(2)),
           Quota: c.quota,
         });
       }
@@ -104,39 +105,40 @@ export default function Page() {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Quotas");
 
-    XLSX.writeFile(wb, "quota_results.xlsx");
+    const stamp = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(wb, `quota_results_${stamp}.xlsx`);
   }
 
   return (
     <main style={{ padding: 24, maxWidth: 1100, margin: "0 auto", fontFamily: "system-ui" }}>
-      <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 16 }}>Quota Builder</h1>
+      <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 16 }}>Quota Builder</h1>
 
-      <div style={{ border: "1px solid #ddd", borderRadius: 12, padding: 16, marginBottom: 16 }}>
+      <div style={{ border: "1px solid #ddd", borderRadius: 14, padding: 18, marginBottom: 16 }}>
         <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))" }}>
           <label>
             <div style={{ fontSize: 12, opacity: 0.7 }}>Year</div>
-            <input type="number" value={year} onChange={(e) => setYear(+e.target.value)} />
+            <input type="number" value={year} onChange={(e) => setYear(+e.target.value)} style={{ width: "100%" }} />
           </label>
 
           <label>
             <div style={{ fontSize: 12, opacity: 0.7 }}>Age From</div>
-            <input type="number" value={ageFrom} onChange={(e) => setAgeFrom(+e.target.value)} />
+            <input type="number" value={ageFrom} onChange={(e) => setAgeFrom(+e.target.value)} style={{ width: "100%" }} />
           </label>
 
           <label>
             <div style={{ fontSize: 12, opacity: 0.7 }}>Age To</div>
-            <input type="number" value={ageTo} onChange={(e) => setAgeTo(+e.target.value)} />
+            <input type="number" value={ageTo} onChange={(e) => setAgeTo(+e.target.value)} style={{ width: "100%" }} />
           </label>
 
           <label>
             <div style={{ fontSize: 12, opacity: 0.7 }}>Sample N</div>
-            <input type="number" value={sampleN} onChange={(e) => setSampleN(+e.target.value)} />
+            <input type="number" value={sampleN} onChange={(e) => setSampleN(+e.target.value)} style={{ width: "100%" }} />
           </label>
 
           <label>
             <div style={{ fontSize: 12, opacity: 0.7 }}>Age Grouping</div>
-            <select value={step} onChange={(e) => setStep(+e.target.value)}>
-              <option value={1}>1</option>
+            <select value={step} onChange={(e) => setStep(+e.target.value)} style={{ width: "100%" }}>
+              <option value={1}>1 (every age)</option>
               <option value={5}>5</option>
               <option value={10}>10</option>
               <option value={15}>15</option>
@@ -145,7 +147,7 @@ export default function Page() {
 
           <label>
             <div style={{ fontSize: 12, opacity: 0.7 }}>Sex Filter</div>
-            <select value={sexFilter} onChange={(e) => setSexFilter(e.target.value as any)}>
+            <select value={sexFilter} onChange={(e) => setSexFilter(e.target.value as any)} style={{ width: "100%" }}>
               <option value="total">Total</option>
               <option value="men">Men</option>
               <option value="women">Women</option>
@@ -154,69 +156,143 @@ export default function Page() {
         </div>
 
         <div style={{ marginTop: 14 }}>
-          <div style={{ fontSize: 12, opacity: 0.7 }}>Dimensions</div>
+          <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}>Dimensions</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-            {DIMENSIONS.map((d) => (
-              <button
-                key={d.key}
-                onClick={() => toggleDim(d.key)}
-                style={{
-                  padding: "6px 10px",
-                  borderRadius: 999,
-                  border: "1px solid #ccc",
-                  background: dims.includes(d.key) ? "#111" : "#fff",
-                  color: dims.includes(d.key) ? "#fff" : "#111",
-                  fontSize: 12,
-                }}
-              >
-                {d.label}
-              </button>
-            ))}
+            {DIMENSIONS.map(({ key, label }) => {
+              const on = dims.includes(key);
+              return (
+                <button
+                  key={key}
+                  onClick={() => toggleDim(key)}
+                  style={{
+                    padding: "7px 12px",
+                    borderRadius: 999,
+                    border: "1px solid #ccc",
+                    background: on ? "#111" : "#fff",
+                    color: on ? "#fff" : "#111",
+                    cursor: "pointer",
+                    fontSize: 12,
+                    fontWeight: 600,
+                  }}
+                >
+                  {label}
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
-          <button onClick={calculate}>{loading ? "Calculating…" : "Calculate"}</button>
+        <div style={{ display: "flex", gap: 10, marginTop: 14, alignItems: "center", flexWrap: "wrap" }}>
+          <button
+            onClick={calculate}
+            disabled={loading}
+            style={{
+              padding: "10px 14px",
+              borderRadius: 10,
+              border: "1px solid #111",
+              background: loading ? "#666" : "#111",
+              color: "#fff",
+              cursor: loading ? "not-allowed" : "pointer",
+              fontWeight: 700,
+            }}
+          >
+            {loading ? "Calculating..." : "Calculate"}
+          </button>
 
-          {data && <button onClick={downloadExcel}>Download Excel</button>}
+          {data && (
+            <button
+              onClick={downloadExcel}
+              style={{
+                padding: "10px 14px",
+                borderRadius: 10,
+                border: "1px solid #111",
+                background: "#fff",
+                color: "#111",
+                cursor: "pointer",
+                fontWeight: 700,
+              }}
+            >
+              Download Excel
+            </button>
+          )}
 
-          <span style={{ fontSize: 12 }}>
+          <span style={{ fontSize: 12, opacity: 0.7 }}>
             Backend: <code>{API_BASE ?? "(missing NEXT_PUBLIC_API_BASE)"}</code>
           </span>
         </div>
 
-        {err && <pre>{err}</pre>}
+        {err && (
+          <pre style={{ marginTop: 12, background: "#fff4f4", border: "1px solid #f0c2c2", padding: 12, borderRadius: 10, overflow: "auto" }}>
+            {err}
+          </pre>
+        )}
       </div>
 
-      {data &&
-        Object.entries(data.results).map(([dim, res]) => (
-          <div key={dim} style={{ border: "1px solid #ddd", borderRadius: 12, padding: 16, marginBottom: 16 }}>
-            <h2>{prettyKey(dim)}</h2>
-
-            <div>Base: {res.base.toLocaleString()}</div>
-
-            <table style={{ width: "100%" }}>
-              <thead>
-                <tr>
-                  <th>Label</th>
-                  <th>Population</th>
-                  <th>Share %</th>
-                  <th>Quota</th>
-                </tr>
-              </thead>
-              <tbody>
-                {res.cells.map((c) => (
-                  <tr key={c.id}>
-                    <td>{c.label}</td>
-                    <td>{c.pop.toLocaleString()}</td>
-                    <td>{(c.share * 100).toFixed(2)}</td>
-                    <td>{c.quota}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      {data && (
+        <>
+          <div style={{ border: "1px solid #ddd", borderRadius: 14, padding: 16, marginBottom: 16 }}>
+            <div style={{ fontWeight: 800 }}>Population total: {data.population_total.toLocaleString()}</div>
+            <div style={{ fontSize: 13, opacity: 0.8 }}>Sample N: {data.sample_n.toLocaleString()}</div>
           </div>
-        ))}
+
+          {Object.entries(data.results).map(([dim, res]) => (
+            <div key={dim} style={{ border: "1px solid #ddd", borderRadius: 14, padding: 16, marginBottom: 16 }}>
+              <div style={{ fontSize: 20, fontWeight: 800, marginBottom: 6 }}>{prettyDim(dim)}</div>
+
+              {res.notes?.length ? (
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}>Notes / warnings</div>
+                  <ul style={{ margin: 0, paddingLeft: 18 }}>
+                    {res.notes.map((n, i) => (
+                      <li key={i} style={{ fontSize: 13, marginBottom: 4 }}>
+                        {n}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              <div style={{ fontSize: 13, opacity: 0.8, marginBottom: 8 }}>Base: {res.base.toLocaleString()}</div>
+
+              <div style={{ overflow: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead>
+                    <tr>
+                      <th style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: "6px 8px" }}>Label</th>
+                      <th style={{ textAlign: "right", borderBottom: "1px solid #ddd", padding: "6px 8px" }}>Population</th>
+                      <th style={{ textAlign: "right", borderBottom: "1px solid #ddd", padding: "6px 8px" }}>Share %</th>
+                      <th style={{ textAlign: "right", borderBottom: "1px solid #ddd", padding: "6px 8px" }}>Quota</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {res.cells.map((c) => (
+                      <tr key={c.id}>
+                        <td style={{ borderBottom: "1px solid #f0f0f0", padding: "6px 8px" }}>{c.label}</td>
+                        <td style={{ borderBottom: "1px solid #f0f0f0", padding: "6px 8px", textAlign: "right" }}>
+                          {c.pop.toLocaleString()}
+                        </td>
+                        <td style={{ borderBottom: "1px solid #f0f0f0", padding: "6px 8px", textAlign: "right" }}>
+                          {(c.share * 100).toFixed(2)}
+                        </td>
+                        <td style={{ borderBottom: "1px solid #f0f0f0", padding: "6px 8px", textAlign: "right", fontWeight: 800 }}>
+                          {c.quota}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ))}
+
+          {data.meta?.errors && Object.keys(data.meta.errors).length > 0 && (
+            <div style={{ border: "1px solid #ddd", borderRadius: 14, padding: 16 }}>
+              <div style={{ fontWeight: 800, marginBottom: 6 }}>Some dimensions failed</div>
+              <pre style={{ margin: 0, overflow: "auto" }}>{JSON.stringify(data.meta.errors, null, 2)}</pre>
+            </div>
+          )}
+        </>
+      )}
     </main>
   );
 }
