@@ -13,25 +13,31 @@ type QuotaResponse = {
   meta?: any;
 };
 
-const ALL_DIMS = [
-  "sex",
-  "age_group",
-  "county",
-  "region",
-  "tallinn_districts",
-  "settlement_type",
-  "education",
-  "nationality",
-  "birth_country",
-  "citizenship_country",
-] as const;
+const DIMENSIONS = [
+  { key: "sex", label: "Sex" },
+  { key: "age_group", label: "Age Group" },
+  { key: "county", label: "County" },
+  { key: "region", label: "Region" },
+  { key: "tallinn_districts", label: "Tallinn Districts" },
+  { key: "settlement_type", label: "Settlement Type" },
+  { key: "education", label: "Education" },
+  { key: "nationality", label: "Nationality" },
+  { key: "birth_country", label: "Birth Country" },
+  { key: "citizenship_country", label: "Citizenship Country" },
+];
+
+function prettyKey(k: string) {
+  const found = DIMENSIONS.find((d) => d.key === k);
+  if (found) return found.label;
+  return k.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
 
 export default function Page() {
   const API_BASE = process.env.NEXT_PUBLIC_API_BASE;
 
   const [year, setYear] = useState(2025);
   const [ageFrom, setAgeFrom] = useState(18);
-  const [ageTo, setAgeTo] = useState(74);
+  const [ageTo, setAgeTo] = useState(64);
   const [sampleN, setSampleN] = useState(1000);
   const [step, setStep] = useState(10);
 
@@ -64,7 +70,6 @@ export default function Page() {
     setData(null);
     setLoading(true);
     try {
-      // If user filters by men/women and "sex" isn't selected, auto-add it so they can see it.
       if ((sexFilter === "men" || sexFilter === "women") && !dims.includes("sex")) {
         setDims((prev) => [...prev, "sex"]);
       }
@@ -81,12 +86,12 @@ export default function Page() {
   function downloadExcel() {
     if (!data) return;
 
-    const rows: Array<Record<string, any>> = [];
+    const rows: any[] = [];
 
     for (const [dim, res] of Object.entries(data.results)) {
       for (const c of res.cells) {
         rows.push({
-          Dimension: dim,
+          Dimension: prettyKey(dim),
           Label: c.label,
           Population: c.pop,
           SharePercent: Number((c.share * 100).toFixed(2)),
@@ -99,8 +104,7 @@ export default function Page() {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Quotas");
 
-    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
-    XLSX.writeFile(wb, `quota_results_${stamp}.xlsx`);
+    XLSX.writeFile(wb, "quota_results.xlsx");
   }
 
   return (
@@ -111,28 +115,28 @@ export default function Page() {
         <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))" }}>
           <label>
             <div style={{ fontSize: 12, opacity: 0.7 }}>Year</div>
-            <input type="number" value={year} onChange={(e) => setYear(+e.target.value)} style={{ width: "100%" }} />
+            <input type="number" value={year} onChange={(e) => setYear(+e.target.value)} />
           </label>
 
           <label>
-            <div style={{ fontSize: 12, opacity: 0.7 }}>Age from</div>
-            <input type="number" value={ageFrom} onChange={(e) => setAgeFrom(+e.target.value)} style={{ width: "100%" }} />
+            <div style={{ fontSize: 12, opacity: 0.7 }}>Age From</div>
+            <input type="number" value={ageFrom} onChange={(e) => setAgeFrom(+e.target.value)} />
           </label>
 
           <label>
-            <div style={{ fontSize: 12, opacity: 0.7 }}>Age to</div>
-            <input type="number" value={ageTo} onChange={(e) => setAgeTo(+e.target.value)} style={{ width: "100%" }} />
+            <div style={{ fontSize: 12, opacity: 0.7 }}>Age To</div>
+            <input type="number" value={ageTo} onChange={(e) => setAgeTo(+e.target.value)} />
           </label>
 
           <label>
             <div style={{ fontSize: 12, opacity: 0.7 }}>Sample N</div>
-            <input type="number" value={sampleN} onChange={(e) => setSampleN(+e.target.value)} style={{ width: "100%" }} />
+            <input type="number" value={sampleN} onChange={(e) => setSampleN(+e.target.value)} />
           </label>
 
           <label>
-            <div style={{ fontSize: 12, opacity: 0.7 }}>Age grouping</div>
-            <select value={step} onChange={(e) => setStep(+e.target.value)} style={{ width: "100%" }}>
-              <option value={1}>1 (every age)</option>
+            <div style={{ fontSize: 12, opacity: 0.7 }}>Age Grouping</div>
+            <select value={step} onChange={(e) => setStep(+e.target.value)}>
+              <option value={1}>1</option>
               <option value={5}>5</option>
               <option value={10}>10</option>
               <option value={15}>15</option>
@@ -140,8 +144,8 @@ export default function Page() {
           </label>
 
           <label>
-            <div style={{ fontSize: 12, opacity: 0.7 }}>Sex filter</div>
-            <select value={sexFilter} onChange={(e) => setSexFilter(e.target.value as any)} style={{ width: "100%" }}>
+            <div style={{ fontSize: 12, opacity: 0.7 }}>Sex Filter</div>
+            <select value={sexFilter} onChange={(e) => setSexFilter(e.target.value as any)}>
               <option value="total">Total</option>
               <option value="men">Men</option>
               <option value="women">Women</option>
@@ -150,142 +154,69 @@ export default function Page() {
         </div>
 
         <div style={{ marginTop: 14 }}>
-          <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}>Dimensions</div>
+          <div style={{ fontSize: 12, opacity: 0.7 }}>Dimensions</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-            {ALL_DIMS.map((d) => (
+            {DIMENSIONS.map((d) => (
               <button
-                key={d}
-                onClick={() => toggleDim(d)}
+                key={d.key}
+                onClick={() => toggleDim(d.key)}
                 style={{
                   padding: "6px 10px",
                   borderRadius: 999,
                   border: "1px solid #ccc",
-                  background: dims.includes(d) ? "#111" : "#fff",
-                  color: dims.includes(d) ? "#fff" : "#111",
-                  cursor: "pointer",
+                  background: dims.includes(d.key) ? "#111" : "#fff",
+                  color: dims.includes(d.key) ? "#fff" : "#111",
                   fontSize: 12,
                 }}
               >
-                {d}
+                {d.label}
               </button>
             ))}
           </div>
         </div>
 
-        <div style={{ display: "flex", gap: 10, marginTop: 14, alignItems: "center" }}>
-          <button
-            onClick={calculate}
-            disabled={loading}
-            style={{
-              padding: "10px 14px",
-              borderRadius: 10,
-              border: "1px solid #111",
-              background: loading ? "#666" : "#111",
-              color: "#fff",
-              cursor: loading ? "not-allowed" : "pointer",
-              fontWeight: 600,
-            }}
-          >
-            {loading ? "Calculating..." : "Calculate"}
-          </button>
+        <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
+          <button onClick={calculate}>{loading ? "Calculating…" : "Calculate"}</button>
 
-          {data && (
-            <button
-              onClick={downloadExcel}
-              style={{
-                padding: "10px 14px",
-                borderRadius: 10,
-                border: "1px solid #111",
-                background: "#fff",
-                color: "#111",
-                cursor: "pointer",
-                fontWeight: 600,
-              }}
-            >
-              Download Excel
-            </button>
-          )}
+          {data && <button onClick={downloadExcel}>Download Excel</button>}
 
-          <span style={{ fontSize: 12, opacity: 0.7 }}>
+          <span style={{ fontSize: 12 }}>
             Backend: <code>{API_BASE ?? "(missing NEXT_PUBLIC_API_BASE)"}</code>
           </span>
         </div>
 
-        {err && (
-          <pre
-            style={{
-              marginTop: 12,
-              background: "#fff4f4",
-              border: "1px solid #f0c2c2",
-              padding: 12,
-              borderRadius: 10,
-              overflow: "auto",
-            }}
-          >
-            {err}
-          </pre>
-        )}
+        {err && <pre>{err}</pre>}
       </div>
 
-      {data && (
-        <>
-          <div style={{ border: "1px solid #ddd", borderRadius: 12, padding: 16, marginBottom: 16 }}>
-            <div style={{ fontWeight: 700 }}>Population total: {data.population_total.toLocaleString()}</div>
-            <div style={{ fontSize: 13, opacity: 0.8 }}>Sample N: {data.sample_n.toLocaleString()}</div>
+      {data &&
+        Object.entries(data.results).map(([dim, res]) => (
+          <div key={dim} style={{ border: "1px solid #ddd", borderRadius: 12, padding: 16, marginBottom: 16 }}>
+            <h2>{prettyKey(dim)}</h2>
+
+            <div>Base: {res.base.toLocaleString()}</div>
+
+            <table style={{ width: "100%" }}>
+              <thead>
+                <tr>
+                  <th>Label</th>
+                  <th>Population</th>
+                  <th>Share %</th>
+                  <th>Quota</th>
+                </tr>
+              </thead>
+              <tbody>
+                {res.cells.map((c) => (
+                  <tr key={c.id}>
+                    <td>{c.label}</td>
+                    <td>{c.pop.toLocaleString()}</td>
+                    <td>{(c.share * 100).toFixed(2)}</td>
+                    <td>{c.quota}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-
-          {Object.entries(data.results).map(([dim, res]) => (
-            <div key={dim} style={{ border: "1px solid #ddd", borderRadius: 12, padding: 16, marginBottom: 16 }}>
-              <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 6 }}>{dim}</div>
-
-              {res.notes?.length ? (
-                <div style={{ marginBottom: 10 }}>
-                  <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}>Notes / warnings</div>
-                  <ul style={{ margin: 0, paddingLeft: 18 }}>
-                    {res.notes.map((n, i) => (
-                      <li key={i} style={{ fontSize: 13, marginBottom: 4 }}>
-                        {n}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-
-              <div style={{ fontSize: 13, opacity: 0.8, marginBottom: 8 }}>Base: {res.base.toLocaleString()}</div>
-
-              <div style={{ overflow: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                  <thead>
-                    <tr>
-                      <th style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: "6px 8px" }}>Label</th>
-                      <th style={{ textAlign: "right", borderBottom: "1px solid #ddd", padding: "6px 8px" }}>Pop</th>
-                      <th style={{ textAlign: "right", borderBottom: "1px solid #ddd", padding: "6px 8px" }}>Share</th>
-                      <th style={{ textAlign: "right", borderBottom: "1px solid #ddd", padding: "6px 8px" }}>Quota</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {res.cells.map((c) => (
-                      <tr key={c.id}>
-                        <td style={{ borderBottom: "1px solid #f0f0f0", padding: "6px 8px" }}>{c.label}</td>
-                        <td style={{ borderBottom: "1px solid #f0f0f0", padding: "6px 8px", textAlign: "right" }}>{c.pop.toLocaleString()}</td>
-                        <td style={{ borderBottom: "1px solid #f0f0f0", padding: "6px 8px", textAlign: "right" }}>{(c.share * 100).toFixed(2)}%</td>
-                        <td style={{ borderBottom: "1px solid #f0f0f0", padding: "6px 8px", textAlign: "right", fontWeight: 700 }}>{c.quota}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          ))}
-
-          {data.meta?.errors && Object.keys(data.meta.errors).length > 0 && (
-            <div style={{ border: "1px solid #ddd", borderRadius: 12, padding: 16 }}>
-              <div style={{ fontWeight: 700, marginBottom: 6 }}>Some dimensions failed</div>
-              <pre style={{ margin: 0, overflow: "auto" }}>{JSON.stringify(data.meta.errors, null, 2)}</pre>
-            </div>
-          )}
-        </>
-      )}
+        ))}
     </main>
   );
 }
