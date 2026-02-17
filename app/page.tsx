@@ -34,6 +34,8 @@ export default function Page() {
   const [sampleN, setSampleN] = useState(1000);
   const [step, setStep] = useState(10);
 
+  const [sexFilter, setSexFilter] = useState<"total" | "men" | "women">("total");
+
   const [dims, setDims] = useState<string[]>(["sex", "age_group", "county", "region"]);
 
   const [data, setData] = useState<QuotaResponse | null>(null);
@@ -47,8 +49,9 @@ export default function Page() {
       sample_n: sampleN,
       age_grouping_years: step,
       dimensions: dims,
+      sex_filter: sexFilter,
     }),
-    [year, ageFrom, ageTo, sampleN, step, dims]
+    [year, ageFrom, ageTo, sampleN, step, dims, sexFilter]
   );
 
   function toggleDim(d: string) {
@@ -60,6 +63,11 @@ export default function Page() {
     setData(null);
     setLoading(true);
     try {
+      // If user filters by men/women and "sex" isn't selected, auto-add it so they can see it.
+      if ((sexFilter === "men" || sexFilter === "women") && !dims.includes("sex")) {
+        setDims((prev) => [...prev, "sex"]);
+      }
+
       const js = await postJson<QuotaResponse>("/v1/quotas/calculate", payload);
       setData(js);
     } catch (e: any) {
@@ -102,6 +110,15 @@ export default function Page() {
               <option value={5}>5</option>
               <option value={10}>10</option>
               <option value={15}>15</option>
+            </select>
+          </label>
+
+          <label>
+            <div style={{ fontSize: 12, opacity: 0.7 }}>Sex filter</div>
+            <select value={sexFilter} onChange={(e) => setSexFilter(e.target.value as any)} style={{ width: "100%" }}>
+              <option value="total">Total</option>
+              <option value="men">Men</option>
+              <option value="women">Women</option>
             </select>
           </label>
         </div>
@@ -147,12 +164,21 @@ export default function Page() {
           </button>
 
           <span style={{ fontSize: 12, opacity: 0.7 }}>
-            Backend: <code>{API_BASE ?? "(missing .env.local)"}</code>
+            Backend: <code>{API_BASE ?? "(missing NEXT_PUBLIC_API_BASE)"}</code>
           </span>
         </div>
 
         {err && (
-          <pre style={{ marginTop: 12, background: "#fff4f4", border: "1px solid #f0c2c2", padding: 12, borderRadius: 10, overflow: "auto" }}>
+          <pre
+            style={{
+              marginTop: 12,
+              background: "#fff4f4",
+              border: "1px solid #f0c2c2",
+              padding: 12,
+              borderRadius: 10,
+              overflow: "auto",
+            }}
+          >
             {err}
           </pre>
         )}
