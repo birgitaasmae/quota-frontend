@@ -29,7 +29,7 @@ const ALL_DIMS = [
 export default function Page() {
   const API_BASE = process.env.NEXT_PUBLIC_API_BASE;
 
-  const [year, setYear] = useState(2024);
+  const [year, setYear] = useState(2025);
   const [ageFrom, setAgeFrom] = useState(18);
   const [ageTo, setAgeTo] = useState(64);
   const [sampleN, setSampleN] = useState(1000);
