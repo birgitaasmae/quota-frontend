@@ -31,7 +31,7 @@ export default function Page() {
 
   const [year, setYear] = useState(2025);
   const [ageFrom, setAgeFrom] = useState(18);
-  const [ageTo, setAgeTo] = useState(64);
+  const [ageTo, setAgeTo] = useState(74);
   const [sampleN, setSampleN] = useState(1000);
   const [step, setStep] = useState(10);
 
