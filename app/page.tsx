@@ -36,6 +36,7 @@ const DIMENSIONS: Array<{ key: string; label: string }> = [
 ];
 
 const geographyConflictDims = ["region", "tallinn_districts", "settlement_type"];
+const cityOnlyConflictDims = ["education", "birth_country", "citizenship_country"];
 
 function prettyDim(key: string) {
   const hit = DIMENSIONS.find((d) => d.key === key);
@@ -140,6 +141,11 @@ export default function Page() {
     () => dims.filter((dim) => geographyConflictDims.includes(dim)),
     [dims]
   );
+  const cityCountySelected = countyFilter === "Tallinna linn" || countyFilter === "Tartu linn";
+  const cityCountyConflictDims = useMemo(
+    () => dims.filter((dim) => cityOnlyConflictDims.includes(dim)),
+    [dims]
+  );
 
   const visibleMetaErrors = useMemo(() => {
     const entries = Object.entries(data?.meta?.errors ?? {});
@@ -206,6 +212,11 @@ export default function Page() {
 
     if (countyFilter && countyConflictDims.length > 0) {
       setErr(`County filter is not possible with ${countyConflictDims.map(prettyDim).join(", ")}. Remove those dimensions first.`);
+      return;
+    }
+
+    if (cityCountySelected && cityCountyConflictDims.length > 0) {
+      setErr(`${countyFilter} is not possible with ${cityCountyConflictDims.map(prettyDim).join(", ")}. Those outputs only support county-level filters, not city filters.`);
       return;
     }
 
@@ -417,6 +428,12 @@ export default function Page() {
           {countyFilter && countyConflictDims.length > 0 ? (
             <div style={{ fontSize: 13, padding: 10, borderRadius: 10, background: "#fff8e8", border: "1px solid #f0d48a" }}>
               County filter does not combine with {countyConflictDims.map(prettyDim).join(", ")} because those outputs already use the same geography dimension as a breakdown.
+            </div>
+          ) : null}
+
+          {cityCountySelected && cityCountyConflictDims.length > 0 ? (
+            <div style={{ fontSize: 13, padding: 10, borderRadius: 10, background: "#fff4f4", border: "1px solid #f0c2c2" }}>
+              {countyFilter} works only in city-capable outputs. It is not possible with {cityCountyConflictDims.map(prettyDim).join(", ")} because those outputs support county-level filters only.
             </div>
           ) : null}
         </div>
