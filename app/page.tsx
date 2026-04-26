@@ -204,6 +204,11 @@ export default function Page() {
       return;
     }
 
+    if (countyFilter && countyConflictDims.length > 0) {
+      setErr(`County filter is not possible with ${countyConflictDims.map(prettyDim).join(", ")}. Remove those dimensions first.`);
+      return;
+    }
+
     setLoading(true);
     try {
       const effectiveDims = [...dims];
