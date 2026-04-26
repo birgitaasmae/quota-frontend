@@ -141,6 +141,7 @@ export default function Page() {
     () => dims.filter((dim) => geographyConflictDims.includes(dim)),
     [dims]
   );
+  const nationalityFilterActive = nationalityFilter !== "all";
 
   const visibleMetaErrors = useMemo(() => {
     const entries = Object.entries(data?.meta?.errors ?? {});
@@ -156,6 +157,10 @@ export default function Page() {
       })
     );
   }, [countyFilter, data]);
+
+  const nationalityFilteredBase = useMemo(() => data?.results?.nationality?.base ?? null, [data]);
+  const summaryPopulation = nationalityFilterActive && nationalityFilteredBase !== null ? nationalityFilteredBase : data?.population_total ?? null;
+  const summaryPopulationLabel = nationalityFilterActive && nationalityFilteredBase !== null ? "Population total (nationality-filtered base)" : "Population total";
 
   const payload = useMemo(
     () => ({
@@ -208,10 +213,13 @@ export default function Page() {
 
     setLoading(true);
     try {
-      const effectiveDims =
-        (sexFilter === "men" || sexFilter === "women") && !dims.includes("sex")
-          ? [...dims, "sex"]
-          : dims;
+      const effectiveDims = [...dims];
+      if ((sexFilter === "men" || sexFilter === "women") && !effectiveDims.includes("sex")) {
+        effectiveDims.push("sex");
+      }
+      if (nationalityFilterActive && !effectiveDims.includes("nationality")) {
+        effectiveDims.push("nationality");
+      }
 
       const js = await postJson<QuotaResponse>("/v1/quotas/calculate", {
         ...payload,
@@ -428,6 +436,12 @@ export default function Page() {
             </div>
           ) : null}
 
+          {nationalityFilterActive ? (
+            <div style={{ fontSize: 13, padding: 10, borderRadius: 10, background: "#eef6ff", border: "1px solid #bdd7ff" }}>
+              Nationality filter currently affects the Nationality table only. If Nationality is not selected below, it will be added automatically when you calculate.
+            </div>
+          ) : null}
+
           <div style={{ fontSize: 13, padding: 10, borderRadius: 10, background: "#f6f6f6", border: "1px solid #e5e5e5" }}>
             Nationality filter currently applies to the Nationality dimension. It is not a universal cross-table filter because the current Statistics Estonia tables do not expose nationality together with every other breakdown in one compatible source.
           </div>
@@ -482,8 +496,13 @@ export default function Page() {
       {data ? (
         <>
           <div style={{ border: "1px solid #ddd", borderRadius: 14, padding: 16, marginBottom: 16 }}>
-            <div style={{ fontWeight: 800 }}>Population total: {data.population_total.toLocaleString()}</div>
+            <div style={{ fontWeight: 800 }}>{summaryPopulationLabel}: {summaryPopulation?.toLocaleString()}</div>
             <div style={{ fontSize: 13, opacity: 0.8 }}>Sample N: {data.sample_n.toLocaleString()}</div>
+            {nationalityFilterActive ? (
+              <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
+                Other tables may still use their own unfiltered source bases unless they come from the Nationality dataset.
+              </div>
+            ) : null}
           </div>
 
           {Object.entries(data.results).map(([dim, res]) => (
