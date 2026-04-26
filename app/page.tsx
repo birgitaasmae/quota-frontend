@@ -78,7 +78,6 @@ export default function Page() {
 
   const [sexFilter, setSexFilter] = useState<"total" | "men" | "women">("total");
   const [countyFilter, setCountyFilter] = useState("");
-  const [nationalityFilter, setNationalityFilter] = useState("all");
   const [countyOptions, setCountyOptions] = useState<CountyOption[]>([]);
 
   const [useCustomAgeGroups, setUseCustomAgeGroups] = useState(false);
@@ -141,11 +140,6 @@ export default function Page() {
     () => dims.filter((dim) => geographyConflictDims.includes(dim)),
     [dims]
   );
-  const nationalityFilterActive = nationalityFilter !== "all";
-  const nationalityFilterInvalidDims = useMemo(
-    () => dims.filter((dim) => dim !== "nationality"),
-    [dims]
-  );
 
   const visibleMetaErrors = useMemo(() => {
     const entries = Object.entries(data?.meta?.errors ?? {});
@@ -162,10 +156,6 @@ export default function Page() {
     );
   }, [countyFilter, data]);
 
-  const nationalityFilteredBase = useMemo(() => data?.results?.nationality?.base ?? null, [data]);
-  const summaryPopulation = nationalityFilterActive && nationalityFilteredBase !== null ? nationalityFilteredBase : data?.population_total ?? null;
-  const summaryPopulationLabel = nationalityFilterActive && nationalityFilteredBase !== null ? "Population total (nationality-filtered base)" : "Population total";
-
   const payload = useMemo(
     () => ({
       reference: { year },
@@ -175,10 +165,9 @@ export default function Page() {
       dimensions: dims,
       sex_filter: sexFilter,
       county_filter: countyFilter || undefined,
-      nationality_filter: nationalityFilter,
       custom_age_groups: useCustomAgeGroups ? customAgeGroups : [],
     }),
-    [year, effectiveAgeBand, sampleN, step, dims, sexFilter, countyFilter, nationalityFilter, useCustomAgeGroups, customAgeGroups]
+    [year, effectiveAgeBand, sampleN, step, dims, sexFilter, countyFilter, useCustomAgeGroups, customAgeGroups]
   );
 
   function toggleDim(d: string) {
@@ -218,21 +207,8 @@ export default function Page() {
     setLoading(true);
     try {
       const effectiveDims = [...dims];
-      if (!nationalityFilterActive && (sexFilter === "men" || sexFilter === "women") && !effectiveDims.includes("sex")) {
+      if ((sexFilter === "men" || sexFilter === "women") && !effectiveDims.includes("sex")) {
         effectiveDims.push("sex");
-      }
-      if (nationalityFilterActive) {
-        if (!effectiveDims.includes("nationality")) {
-          setErr("Nationality filter is only possible with the Nationality dimension. Please select Nationality and remove the other dimensions, or set the nationality filter back to All nationalities.");
-          setLoading(false);
-          return;
-        }
-        const unsupportedDims = effectiveDims.filter((dim) => dim !== "nationality");
-        if (unsupportedDims.length > 0) {
-          setErr(`Nationality filter is not possible with ${unsupportedDims.map(prettyDim).join(", ")}. Use it only with the Nationality dimension.`);
-          setLoading(false);
-          return;
-        }
       }
 
       const js = await postJson<QuotaResponse>("/v1/quotas/calculate", {
@@ -325,17 +301,6 @@ export default function Page() {
                   {option.label}
                 </option>
               ))}
-            </select>
-          </label>
-
-          <label>
-            <div style={{ fontSize: 12, opacity: 0.7 }}>Nationality Filter</div>
-            <select value={nationalityFilter} onChange={(e) => setNationalityFilter(e.target.value)} style={{ width: "100%" }}>
-              <option value="all">All nationalities</option>
-              <option value="estonian">Estonians</option>
-              <option value="russian">Russians</option>
-              <option value="ukrainian">Ukrainians</option>
-              <option value="other">Other nationalities</option>
             </select>
           </label>
         </div>
@@ -449,23 +414,7 @@ export default function Page() {
               County filter does not combine with {countyConflictDims.map(prettyDim).join(", ")} because those outputs already use the same geography dimension as a breakdown.
             </div>
           ) : null}
-
-          {nationalityFilterActive ? (
-            <div style={{ fontSize: 13, padding: 10, borderRadius: 10, background: "#eef6ff", border: "1px solid #bdd7ff" }}>
-              Nationality filter is only possible with the Nationality dimension.
-            </div>
-          ) : null}
-
-          <div style={{ fontSize: 13, padding: 10, borderRadius: 10, background: "#f6f6f6", border: "1px solid #e5e5e5" }}>
-            Nationality filter is not possible for the other dimensions because the current Statistics Estonia tables do not expose nationality together with every other breakdown in one compatible source.
-          </div>
         </div>
-
-        {nationalityFilterActive && nationalityFilterInvalidDims.length > 0 ? (
-          <div style={{ marginTop: 14, fontSize: 13, padding: 10, borderRadius: 10, background: "#fff4f4", border: "1px solid #f0c2c2" }}>
-            Not possible with nationality filter: {nationalityFilterInvalidDims.map(prettyDim).join(", ")}. Keep only Nationality selected.
-          </div>
-        ) : null}
 
         <div style={{ display: "flex", gap: 10, marginTop: 14, alignItems: "center", flexWrap: "wrap" }}>
           <button
@@ -516,13 +465,8 @@ export default function Page() {
       {data ? (
         <>
           <div style={{ border: "1px solid #ddd", borderRadius: 14, padding: 16, marginBottom: 16 }}>
-            <div style={{ fontWeight: 800 }}>{summaryPopulationLabel}: {summaryPopulation?.toLocaleString()}</div>
+            <div style={{ fontWeight: 800 }}>Population total: {data.population_total.toLocaleString()}</div>
             <div style={{ fontSize: 13, opacity: 0.8 }}>Sample N: {data.sample_n.toLocaleString()}</div>
-            {nationalityFilterActive ? (
-              <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
-                Other tables may still use their own unfiltered source bases unless they come from the Nationality dataset.
-              </div>
-            ) : null}
           </div>
 
           {Object.entries(data.results).map(([dim, res]) => (
