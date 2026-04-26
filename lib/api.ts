@@ -6,15 +6,7 @@ export function getApiBase(): string {
   return base.replace(/\/$/, "");
 }
 
-export async function postJson<T>(path: string, payload: unknown): Promise<T> {
-  const url = `${getApiBase()}${path}`;
-
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-
+async function parseJsonResponse<T>(res: Response): Promise<T> {
   const text = await res.text();
 
   if (!res.ok) {
@@ -30,4 +22,21 @@ export async function postJson<T>(path: string, payload: unknown): Promise<T> {
   } catch {
     throw new Error(`API returned non-JSON: ${text.slice(0, 500)}`);
   }
+}
+
+export async function getJson<T>(path: string): Promise<T> {
+  const url = `${getApiBase()}${path}`;
+  const res = await fetch(url, { method: "GET" });
+  return parseJsonResponse<T>(res);
+}
+
+export async function postJson<T>(path: string, payload: unknown): Promise<T> {
+  const url = `${getApiBase()}${path}`;
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  return parseJsonResponse<T>(res);
 }
