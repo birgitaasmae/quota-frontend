@@ -14,6 +14,10 @@ type QuotaResponse = {
     errors?: Record<string, unknown>;
   };
 };
+type MetaError = {
+  msg?: string;
+  county_filter?: string;
+};
 type CountyOption = { code: string; label: string };
 type CountyOptionsResponse = { items: CountyOption[] };
 type AgeBandInput = { from: number; to: number };
@@ -74,6 +78,7 @@ export default function Page() {
 
   const [sexFilter, setSexFilter] = useState<"total" | "men" | "women">("total");
   const [countyFilter, setCountyFilter] = useState("");
+  const [nationalityFilter, setNationalityFilter] = useState("all");
   const [countyOptions, setCountyOptions] = useState<CountyOption[]>([]);
 
   const [useCustomAgeGroups, setUseCustomAgeGroups] = useState(false);
@@ -137,6 +142,21 @@ export default function Page() {
     [dims]
   );
 
+  const visibleMetaErrors = useMemo(() => {
+    const entries = Object.entries(data?.meta?.errors ?? {});
+    return Object.fromEntries(
+      entries.filter(([key, value]) => {
+        const detail = value as MetaError;
+        const expectedCountyConflict =
+          countyFilter &&
+          geographyConflictDims.includes(key) &&
+          typeof detail?.msg === "string" &&
+          detail.msg.includes("county_filter is not supported");
+        return !expectedCountyConflict;
+      })
+    );
+  }, [countyFilter, data]);
+
   const payload = useMemo(
     () => ({
       reference: { year },
@@ -146,9 +166,10 @@ export default function Page() {
       dimensions: dims,
       sex_filter: sexFilter,
       county_filter: countyFilter || undefined,
+      nationality_filter: nationalityFilter,
       custom_age_groups: useCustomAgeGroups ? customAgeGroups : [],
     }),
-    [year, effectiveAgeBand, sampleN, step, dims, sexFilter, countyFilter, useCustomAgeGroups, customAgeGroups]
+    [year, effectiveAgeBand, sampleN, step, dims, sexFilter, countyFilter, nationalityFilter, useCustomAgeGroups, customAgeGroups]
   );
 
   function toggleDim(d: string) {
@@ -284,6 +305,17 @@ export default function Page() {
               ))}
             </select>
           </label>
+
+          <label>
+            <div style={{ fontSize: 12, opacity: 0.7 }}>Nationality Filter</div>
+            <select value={nationalityFilter} onChange={(e) => setNationalityFilter(e.target.value)} style={{ width: "100%" }}>
+              <option value="all">All nationalities</option>
+              <option value="estonian">Estonians</option>
+              <option value="russian">Russians</option>
+              <option value="ukrainian">Ukrainians</option>
+              <option value="other">Other nationalities</option>
+            </select>
+          </label>
         </div>
 
         <div style={{ marginTop: 16, border: "1px solid #eee", borderRadius: 12, padding: 14 }}>
@@ -397,7 +429,7 @@ export default function Page() {
           ) : null}
 
           <div style={{ fontSize: 13, padding: 10, borderRadius: 10, background: "#f6f6f6", border: "1px solid #e5e5e5" }}>
-            Nationality as a global filter is not enabled yet. The current Statistics Estonia tables do not expose nationality together with all existing breakdowns in one compatible source.
+            Nationality filter currently applies to the Nationality dimension. It is not a universal cross-table filter because the current Statistics Estonia tables do not expose nationality together with every other breakdown in one compatible source.
           </div>
         </div>
 
@@ -504,10 +536,10 @@ export default function Page() {
             </div>
           ))}
 
-          {data.meta?.errors && Object.keys(data.meta.errors).length > 0 ? (
+          {Object.keys(visibleMetaErrors).length > 0 ? (
             <div style={{ border: "1px solid #ddd", borderRadius: 14, padding: 16 }}>
               <div style={{ fontWeight: 800, marginBottom: 6 }}>Some dimensions failed</div>
-              <pre style={{ margin: 0, overflow: "auto" }}>{JSON.stringify(data.meta.errors, null, 2)}</pre>
+              <pre style={{ margin: 0, overflow: "auto" }}>{JSON.stringify(visibleMetaErrors, null, 2)}</pre>
             </div>
           ) : null}
         </>
