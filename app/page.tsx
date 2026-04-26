@@ -142,6 +142,10 @@ export default function Page() {
     [dims]
   );
   const nationalityFilterActive = nationalityFilter !== "all";
+  const nationalityFilterInvalidDims = useMemo(
+    () => dims.filter((dim) => dim !== "nationality"),
+    [dims]
+  );
 
   const visibleMetaErrors = useMemo(() => {
     const entries = Object.entries(data?.meta?.errors ?? {});
@@ -214,11 +218,21 @@ export default function Page() {
     setLoading(true);
     try {
       const effectiveDims = [...dims];
-      if ((sexFilter === "men" || sexFilter === "women") && !effectiveDims.includes("sex")) {
+      if (!nationalityFilterActive && (sexFilter === "men" || sexFilter === "women") && !effectiveDims.includes("sex")) {
         effectiveDims.push("sex");
       }
-      if (nationalityFilterActive && !effectiveDims.includes("nationality")) {
-        effectiveDims.push("nationality");
+      if (nationalityFilterActive) {
+        if (!effectiveDims.includes("nationality")) {
+          setErr("Nationality filter is only possible with the Nationality dimension. Please select Nationality and remove the other dimensions, or set the nationality filter back to All nationalities.");
+          setLoading(false);
+          return;
+        }
+        const unsupportedDims = effectiveDims.filter((dim) => dim !== "nationality");
+        if (unsupportedDims.length > 0) {
+          setErr(`Nationality filter is not possible with ${unsupportedDims.map(prettyDim).join(", ")}. Use it only with the Nationality dimension.`);
+          setLoading(false);
+          return;
+        }
       }
 
       const js = await postJson<QuotaResponse>("/v1/quotas/calculate", {
@@ -438,14 +452,20 @@ export default function Page() {
 
           {nationalityFilterActive ? (
             <div style={{ fontSize: 13, padding: 10, borderRadius: 10, background: "#eef6ff", border: "1px solid #bdd7ff" }}>
-              Nationality filter currently affects the Nationality table only. If Nationality is not selected below, it will be added automatically when you calculate.
+              Nationality filter is only possible with the Nationality dimension.
             </div>
           ) : null}
 
           <div style={{ fontSize: 13, padding: 10, borderRadius: 10, background: "#f6f6f6", border: "1px solid #e5e5e5" }}>
-            Nationality filter currently applies to the Nationality dimension. It is not a universal cross-table filter because the current Statistics Estonia tables do not expose nationality together with every other breakdown in one compatible source.
+            Nationality filter is not possible for the other dimensions because the current Statistics Estonia tables do not expose nationality together with every other breakdown in one compatible source.
           </div>
         </div>
+
+        {nationalityFilterActive && nationalityFilterInvalidDims.length > 0 ? (
+          <div style={{ marginTop: 14, fontSize: 13, padding: 10, borderRadius: 10, background: "#fff4f4", border: "1px solid #f0c2c2" }}>
+            Not possible with nationality filter: {nationalityFilterInvalidDims.map(prettyDim).join(", ")}. Keep only Nationality selected.
+          </div>
+        ) : null}
 
         <div style={{ display: "flex", gap: 10, marginTop: 14, alignItems: "center", flexWrap: "wrap" }}>
           <button
