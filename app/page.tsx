@@ -188,9 +188,17 @@ export default function Page() {
       );
     }
     if (cityCountySelected && cityCountyConflictDims.length > 0) {
-      parts.push(
-        `${cityCountyConflictDims.map(prettyDim).join(", ")} support county-level filters only`
-      );
+      const blockedForCity = cityCountyConflictDims.filter((dim) => {
+        if (dim === "education") {
+          return countyFilter === "Tartu linn";
+        }
+        return true;
+      });
+      if (blockedForCity.length > 0) {
+        parts.push(
+          `${blockedForCity.map(prettyDim).join(", ")} support county-level filters only`
+        );
+      }
     }
     if (parts.length === 0) {
       return null;
@@ -203,12 +211,15 @@ export default function Page() {
       return "Nationality Filter and Education Filter cannot be used together.";
     }
     if (nationalityFilter !== "all") {
-      const allowed = new Set(["sex", "age_group", "county", "nationality"]);
+      const allowed = new Set(["sex", "age_group", "county", "nationality", "tallinn_districts"]);
       const unsupported = dims.filter((dim) => !allowed.has(dim));
       if (unsupported.length > 0) {
-        return `Nationality Filter works only with Sex, Age Group, County, and Nationality. Remove ${unsupported
+        return `Nationality Filter works only with Sex, Age Group, County, Nationality, and Tallinn Districts. Remove ${unsupported
           .map(prettyDim)
           .join(", ")} to continue.`;
+      }
+      if (dims.includes("tallinn_districts") && countyFilter && countyFilter !== "Tallinna linn") {
+        return "Nationality Filter can use Tallinn Districts only when County Filter is Tallinna linn.";
       }
     }
     if (educationFilter !== "all") {
@@ -219,9 +230,15 @@ export default function Page() {
           .map(prettyDim)
           .join(", ")} to continue.`;
       }
+      if (countyFilter === "Tartu linn") {
+        return "Education Filter does not support Tartu linn, because RV0231U contains Tallinn city but not Tartu city.";
+      }
+      if (dims.includes("tallinn_districts")) {
+        return "Education Filter does not support Tallinn Districts, because RV0231U has no district-level breakdown.";
+      }
     }
     return null;
-  }, [dims, educationFilter, nationalityFilter]);
+  }, [dims, educationFilter, nationalityFilter, countyFilter]);
 
   const formWarningMessage = useMemo(() => {
     const parts = [countyConflictMessage, sourceFilterMessage].filter(Boolean);
