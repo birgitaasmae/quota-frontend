@@ -88,8 +88,6 @@ function validateAgeBands(bands: AgeBandInput[]) {
 }
 
 export default function Page() {
-  const API_BASE = process.env.NEXT_PUBLIC_API_BASE;
-
   const [year, setYear] = useState(2025);
   const [ageFrom, setAgeFrom] = useState(18);
   const [ageTo, setAgeTo] = useState(64);
@@ -364,7 +362,7 @@ export default function Page() {
         }}
       >
         <div style={{ fontSize: 54, lineHeight: 0.9, fontWeight: 900, letterSpacing: -3, textTransform: "lowercase" }}>norstat</div>
-        <div style={{ fontSize: 17, fontWeight: 700, marginTop: 4, letterSpacing: 0.4 }}>Quota Builder</div>
+        <div style={{ fontSize: 17, fontWeight: 700, marginTop: 4, letterSpacing: 0.4 }}>Quota Builder for Estonia</div>
       </div>
 
       <div style={{ border: `1px solid ${THEME.border}`, borderRadius: 18, padding: 18, marginBottom: 16, background: THEME.card, boxShadow: "0 10px 28px rgba(6, 43, 47, 0.08)" }}>
@@ -582,9 +580,6 @@ export default function Page() {
             </button>
           ) : null}
 
-          <span style={{ fontSize: 12, color: THEME.textMuted }}>
-            Backend: <code>{API_BASE ?? "(missing NEXT_PUBLIC_API_BASE)"}</code>
-          </span>
         </div>
 
         {err ? (
