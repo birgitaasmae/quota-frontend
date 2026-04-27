@@ -21,6 +21,8 @@ type MetaError = {
 type CountyOption = { code: string; label: string };
 type CountyOptionsResponse = { items: CountyOption[] };
 type AgeBandInput = { from: number; to: number };
+type NationalityFilter = "all" | "estonian" | "russian" | "ukrainian" | "other";
+type EducationFilter = "all" | "basic" | "secondary" | "higher";
 
 const DIMENSIONS: Array<{ key: string; label: string }> = [
   { key: "sex", label: "Sex" },
@@ -98,6 +100,8 @@ export default function Page() {
 
   const [sexFilter, setSexFilter] = useState<"total" | "men" | "women">("total");
   const [countyFilter, setCountyFilter] = useState("");
+  const [nationalityFilter, setNationalityFilter] = useState<NationalityFilter>("all");
+  const [educationFilter, setEducationFilter] = useState<EducationFilter>("all");
   const [countyOptions, setCountyOptions] = useState<CountyOption[]>([]);
 
   const [useCustomAgeGroups, setUseCustomAgeGroups] = useState(false);
@@ -194,6 +198,43 @@ export default function Page() {
     return `${countyFilter} does not work with ${parts.join("; ")}.`;
   }, [countyFilter, countyConflictDims, cityCountySelected, cityCountyConflictDims]);
 
+  const sourceFilterMessage = useMemo(() => {
+    if (nationalityFilter !== "all" && educationFilter !== "all") {
+      return "Nationality Filter and Education Filter cannot be used together.";
+    }
+    if (nationalityFilter !== "all") {
+      const unsupported = dims.filter((dim) => dim !== "nationality");
+      if (!dims.includes("nationality")) {
+        return "Nationality Filter works only with the Nationality dimension.";
+      }
+      if (unsupported.length > 0) {
+        return `Nationality Filter works only with the Nationality dimension. Remove ${unsupported
+          .map(prettyDim)
+          .join(", ")} to continue.`;
+      }
+    }
+    if (educationFilter !== "all") {
+      const unsupported = dims.filter((dim) => dim !== "education");
+      if (!dims.includes("education")) {
+        return "Education Filter works only with the Education dimension.";
+      }
+      if (unsupported.length > 0) {
+        return `Education Filter works only with the Education dimension. Remove ${unsupported
+          .map(prettyDim)
+          .join(", ")} to continue.`;
+      }
+    }
+    return null;
+  }, [dims, educationFilter, nationalityFilter]);
+
+  const formWarningMessage = useMemo(() => {
+    const parts = [countyConflictMessage, sourceFilterMessage].filter(Boolean);
+    if (!parts.length) {
+      return null;
+    }
+    return parts.join(" ");
+  }, [countyConflictMessage, sourceFilterMessage]);
+
   const visibleMetaErrors = useMemo(() => {
     const entries = Object.entries(data?.meta?.errors ?? {});
     return Object.fromEntries(
@@ -218,9 +259,23 @@ export default function Page() {
       dimensions: dims,
       sex_filter: sexFilter,
       county_filter: countyFilter || undefined,
+      nationality_filter: nationalityFilter,
+      education_filter: educationFilter,
       custom_age_groups: useCustomAgeGroups ? customAgeGroups : [],
     }),
-    [year, effectiveAgeBand, sampleN, step, dims, sexFilter, countyFilter, useCustomAgeGroups, customAgeGroups]
+    [
+      year,
+      effectiveAgeBand,
+      sampleN,
+      step,
+      dims,
+      sexFilter,
+      countyFilter,
+      nationalityFilter,
+      educationFilter,
+      useCustomAgeGroups,
+      customAgeGroups,
+    ]
   );
 
   useEffect(() => {
@@ -302,8 +357,8 @@ export default function Page() {
       return;
     }
 
-    if (countyConflictMessage) {
-      setErr(countyConflictMessage);
+    if (formWarningMessage) {
+      setErr(formWarningMessage);
       return;
     }
 
@@ -434,6 +489,27 @@ export default function Page() {
               ))}
             </select>
           </label>
+
+          <label>
+            <div style={{ fontSize: 12, color: THEME.textMuted }}>Nationality Filter</div>
+            <select value={nationalityFilter} onChange={(e) => setNationalityFilter(e.target.value as NationalityFilter)} style={{ width: "100%", border: `1px solid ${THEME.border}`, borderRadius: 10, padding: "10px 12px" }}>
+              <option value="all">All nationalities</option>
+              <option value="estonian">Estonians</option>
+              <option value="russian">Russians</option>
+              <option value="ukrainian">Ukrainians</option>
+              <option value="other">Other nationalities</option>
+            </select>
+          </label>
+
+          <label>
+            <div style={{ fontSize: 12, color: THEME.textMuted }}>Education Filter</div>
+            <select value={educationFilter} onChange={(e) => setEducationFilter(e.target.value as EducationFilter)} style={{ width: "100%", border: `1px solid ${THEME.border}`, borderRadius: 10, padding: "10px 12px" }}>
+              <option value="all">All education levels</option>
+              <option value="basic">Basic / lower</option>
+              <option value="secondary">Secondary</option>
+              <option value="higher">Higher</option>
+            </select>
+          </label>
         </div>
 
         <div style={{ marginTop: 16, border: `1px solid ${THEME.border}`, borderRadius: 14, padding: 14, background: THEME.brandSoft }}>
@@ -540,9 +616,9 @@ export default function Page() {
         </div>
 
         <div style={{ marginTop: 14, display: "grid", gap: 8 }}>
-          {countyConflictMessage ? (
+          {formWarningMessage ? (
             <div style={{ fontSize: 13, padding: 10, borderRadius: 10, background: THEME.warningBg, border: `1px solid ${THEME.warningBorder}` }}>
-              {countyConflictMessage}
+              {formWarningMessage}
             </div>
           ) : null}
         </div>
