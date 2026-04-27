@@ -78,6 +78,8 @@ export default function Page() {
   const [year, setYear] = useState(2025);
   const [ageFrom, setAgeFrom] = useState(18);
   const [ageTo, setAgeTo] = useState(64);
+  const [ageFromInput, setAgeFromInput] = useState("18");
+  const [ageToInput, setAgeToInput] = useState("64");
   const [sampleN, setSampleN] = useState(1000);
   const [step, setStep] = useState(10);
 
@@ -216,11 +218,41 @@ export default function Page() {
     const nextTo = sorted[sorted.length - 1].to;
     if (ageFrom !== nextFrom) {
       setAgeFrom(nextFrom);
+      setAgeFromInput(String(nextFrom));
     }
     if (ageTo !== nextTo) {
       setAgeTo(nextTo);
+      setAgeToInput(String(nextTo));
     }
   }, [customAgeGroups, useCustomAgeGroups, ageFrom, ageTo]);
+
+  useEffect(() => {
+    if (!useCustomAgeGroups) {
+      setAgeFromInput(String(ageFrom));
+    }
+  }, [ageFrom, useCustomAgeGroups]);
+
+  useEffect(() => {
+    if (!useCustomAgeGroups) {
+      setAgeToInput(String(ageTo));
+    }
+  }, [ageTo, useCustomAgeGroups]);
+
+  function handleAgeInputChange(value: string, setter: (value: string) => void, numberSetter: (value: number) => void) {
+    if (!/^\d*$/.test(value)) {
+      return;
+    }
+    setter(value);
+    if (value !== "") {
+      numberSetter(Number(value));
+    }
+  }
+
+  function handleAgeInputBlur(value: string, setter: (value: string) => void, numberValue: number) {
+    if (value === "") {
+      setter(String(numberValue));
+    }
+  }
 
   function toggleDim(d: string) {
     setDims((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]));
@@ -317,12 +349,28 @@ export default function Page() {
 
           <label>
             <div style={{ fontSize: 12, opacity: 0.7 }}>Age From</div>
-            <input type="number" value={useCustomAgeGroups ? effectiveAgeBand.from : ageFrom} onChange={(e) => setAgeFrom(+e.target.value)} style={{ width: "100%" }} disabled={useCustomAgeGroups} />
+            <input
+              type="text"
+              inputMode="numeric"
+              value={useCustomAgeGroups ? String(effectiveAgeBand.from) : ageFromInput}
+              onChange={(e) => handleAgeInputChange(e.target.value, setAgeFromInput, setAgeFrom)}
+              onBlur={() => handleAgeInputBlur(ageFromInput, setAgeFromInput, ageFrom)}
+              style={{ width: "100%" }}
+              disabled={useCustomAgeGroups}
+            />
           </label>
 
           <label>
             <div style={{ fontSize: 12, opacity: 0.7 }}>Age To</div>
-            <input type="number" value={useCustomAgeGroups ? effectiveAgeBand.to : ageTo} onChange={(e) => setAgeTo(+e.target.value)} style={{ width: "100%" }} disabled={useCustomAgeGroups} />
+            <input
+              type="text"
+              inputMode="numeric"
+              value={useCustomAgeGroups ? String(effectiveAgeBand.to) : ageToInput}
+              onChange={(e) => handleAgeInputChange(e.target.value, setAgeToInput, setAgeTo)}
+              onBlur={() => handleAgeInputBlur(ageToInput, setAgeToInput, ageTo)}
+              style={{ width: "100%" }}
+              disabled={useCustomAgeGroups}
+            />
           </label>
 
           <label>
