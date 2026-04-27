@@ -89,10 +89,10 @@ function validateAgeBands(bands: AgeBandInput[]) {
 
 export default function Page() {
   const [year, setYear] = useState(2025);
-  const [ageFrom, setAgeFrom] = useState(18);
-  const [ageTo, setAgeTo] = useState(64);
-  const [ageFromInput, setAgeFromInput] = useState("18");
-  const [ageToInput, setAgeToInput] = useState("64");
+  const [ageFrom, setAgeFrom] = useState(16);
+  const [ageTo, setAgeTo] = useState(74);
+  const [ageFromInput, setAgeFromInput] = useState("16");
+  const [ageToInput, setAgeToInput] = useState("74");
   const [sampleN, setSampleN] = useState(1000);
   const [step, setStep] = useState(10);
 
@@ -102,11 +102,12 @@ export default function Page() {
 
   const [useCustomAgeGroups, setUseCustomAgeGroups] = useState(false);
   const [customAgeGroups, setCustomAgeGroups] = useState<AgeBandInput[]>([
-    { from: 18, to: 24 },
+    { from: 16, to: 24 },
     { from: 25, to: 34 },
     { from: 35, to: 44 },
     { from: 45, to: 54 },
     { from: 55, to: 64 },
+    { from: 65, to: 74 },
   ]);
 
   const [dims, setDims] = useState<string[]>(["sex", "age_group", "county", "region"]);
