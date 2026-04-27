@@ -38,6 +38,10 @@ const DIMENSIONS: Array<{ key: string; label: string }> = [
 const geographyConflictDims = ["region", "tallinn_districts", "settlement_type"];
 const cityOnlyConflictDims = ["education", "birth_country", "citizenship_country"];
 
+function isTallinnCounty(value: string) {
+  return value === "Tallinna linn";
+}
+
 function prettyDim(key: string) {
   const hit = DIMENSIONS.find((d) => d.key === key);
   if (hit) return hit.label;
@@ -137,15 +141,42 @@ export default function Page() {
     [customAgeGroups]
   );
 
-  const countyConflictDims = useMemo(
-    () => dims.filter((dim) => geographyConflictDims.includes(dim)),
-    [dims]
-  );
+  const countyConflictDims = useMemo(() => {
+    return dims.filter((dim) => {
+      if (!geographyConflictDims.includes(dim)) {
+        return false;
+      }
+      if (dim === "tallinn_districts" && isTallinnCounty(countyFilter)) {
+        return false;
+      }
+      return true;
+    });
+  }, [dims, countyFilter]);
   const cityCountySelected = countyFilter === "Tallinna linn" || countyFilter === "Tartu linn";
   const cityCountyConflictDims = useMemo(
     () => dims.filter((dim) => cityOnlyConflictDims.includes(dim)),
     [dims]
   );
+  const countyConflictMessage = useMemo(() => {
+    if (!countyFilter) {
+      return null;
+    }
+    const parts: string[] = [];
+    if (countyConflictDims.length > 0) {
+      parts.push(
+        `${countyConflictDims.map(prettyDim).join(", ")} use the same geography as a breakdown`
+      );
+    }
+    if (cityCountySelected && cityCountyConflictDims.length > 0) {
+      parts.push(
+        `${cityCountyConflictDims.map(prettyDim).join(", ")} support county-level filters only`
+      );
+    }
+    if (parts.length === 0) {
+      return null;
+    }
+    return `${countyFilter} does not work with ${parts.join("; ")}.`;
+  }, [countyFilter, countyConflictDims, cityCountySelected, cityCountyConflictDims]);
 
   const visibleMetaErrors = useMemo(() => {
     const entries = Object.entries(data?.meta?.errors ?? {});
@@ -175,6 +206,21 @@ export default function Page() {
     }),
     [year, effectiveAgeBand, sampleN, step, dims, sexFilter, countyFilter, useCustomAgeGroups, customAgeGroups]
   );
+
+  useEffect(() => {
+    if (!useCustomAgeGroups || !customAgeGroups.length) {
+      return;
+    }
+    const sorted = [...customAgeGroups].sort((a, b) => a.from - b.from || a.to - b.to);
+    const nextFrom = sorted[0].from;
+    const nextTo = sorted[sorted.length - 1].to;
+    if (ageFrom !== nextFrom) {
+      setAgeFrom(nextFrom);
+    }
+    if (ageTo !== nextTo) {
+      setAgeTo(nextTo);
+    }
+  }, [customAgeGroups, useCustomAgeGroups, ageFrom, ageTo]);
 
   function toggleDim(d: string) {
     setDims((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]));
@@ -210,13 +256,8 @@ export default function Page() {
       return;
     }
 
-    if (countyFilter && countyConflictDims.length > 0) {
-      setErr(`County filter is not possible with ${countyConflictDims.map(prettyDim).join(", ")}. Remove those dimensions first.`);
-      return;
-    }
-
-    if (cityCountySelected && cityCountyConflictDims.length > 0) {
-      setErr(`${countyFilter} is not possible with ${cityCountyConflictDims.map(prettyDim).join(", ")}. Those outputs only support county-level filters, not city filters.`);
+    if (countyConflictMessage) {
+      setErr(countyConflictMessage);
       return;
     }
 
@@ -276,12 +317,12 @@ export default function Page() {
 
           <label>
             <div style={{ fontSize: 12, opacity: 0.7 }}>Age From</div>
-            <input type="number" value={ageFrom} onChange={(e) => setAgeFrom(+e.target.value)} style={{ width: "100%" }} />
+            <input type="number" value={useCustomAgeGroups ? effectiveAgeBand.from : ageFrom} onChange={(e) => setAgeFrom(+e.target.value)} style={{ width: "100%" }} disabled={useCustomAgeGroups} />
           </label>
 
           <label>
             <div style={{ fontSize: 12, opacity: 0.7 }}>Age To</div>
-            <input type="number" value={ageTo} onChange={(e) => setAgeTo(+e.target.value)} style={{ width: "100%" }} />
+            <input type="number" value={useCustomAgeGroups ? effectiveAgeBand.to : ageTo} onChange={(e) => setAgeTo(+e.target.value)} style={{ width: "100%" }} disabled={useCustomAgeGroups} />
           </label>
 
           <label>
@@ -425,15 +466,9 @@ export default function Page() {
         </div>
 
         <div style={{ marginTop: 14, display: "grid", gap: 8 }}>
-          {countyFilter && countyConflictDims.length > 0 ? (
+          {countyConflictMessage ? (
             <div style={{ fontSize: 13, padding: 10, borderRadius: 10, background: "#fff8e8", border: "1px solid #f0d48a" }}>
-              County filter does not combine with {countyConflictDims.map(prettyDim).join(", ")} because those outputs already use the same geography dimension as a breakdown.
-            </div>
-          ) : null}
-
-          {cityCountySelected && cityCountyConflictDims.length > 0 ? (
-            <div style={{ fontSize: 13, padding: 10, borderRadius: 10, background: "#fff4f4", border: "1px solid #f0c2c2" }}>
-              {countyFilter} works only in city-capable outputs. It is not possible with {cityCountyConflictDims.map(prettyDim).join(", ")} because those outputs support county-level filters only.
+              {countyConflictMessage}
             </div>
           ) : null}
         </div>
