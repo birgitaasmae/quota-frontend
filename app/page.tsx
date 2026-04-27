@@ -35,8 +35,8 @@ const DIMENSIONS: Array<{ key: string; label: string }> = [
   { key: "citizenship_country", label: "Citizenship Country" },
 ];
 
-const geographyConflictDims = ["region", "tallinn_districts", "settlement_type"];
-const cityOnlyConflictDims = ["education", "birth_country", "citizenship_country"];
+const geographyConflictDims = ["region", "tallinn_districts"];
+const cityOnlyConflictDims = ["education", "birth_country", "citizenship_country", "settlement_type"];
 
 function isTallinnCounty(value: string) {
   return value === "Tallinna linn";
