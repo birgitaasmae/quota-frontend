@@ -203,23 +203,19 @@ export default function Page() {
       return "Nationality Filter and Education Filter cannot be used together.";
     }
     if (nationalityFilter !== "all") {
-      const unsupported = dims.filter((dim) => dim !== "nationality");
-      if (!dims.includes("nationality")) {
-        return "Nationality Filter works only with the Nationality dimension.";
-      }
+      const allowed = new Set(["sex", "age_group", "county", "nationality"]);
+      const unsupported = dims.filter((dim) => !allowed.has(dim));
       if (unsupported.length > 0) {
-        return `Nationality Filter works only with the Nationality dimension. Remove ${unsupported
+        return `Nationality Filter works only with Sex, Age Group, County, and Nationality. Remove ${unsupported
           .map(prettyDim)
           .join(", ")} to continue.`;
       }
     }
     if (educationFilter !== "all") {
-      const unsupported = dims.filter((dim) => dim !== "education");
-      if (!dims.includes("education")) {
-        return "Education Filter works only with the Education dimension.";
-      }
+      const allowed = new Set(["sex", "age_group", "county", "education"]);
+      const unsupported = dims.filter((dim) => !allowed.has(dim));
       if (unsupported.length > 0) {
-        return `Education Filter works only with the Education dimension. Remove ${unsupported
+        return `Education Filter works only with Sex, Age Group, County, and Education. Remove ${unsupported
           .map(prettyDim)
           .join(", ")} to continue.`;
       }
