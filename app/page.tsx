@@ -35,6 +35,21 @@ const DIMENSIONS: Array<{ key: string; label: string }> = [
   { key: "citizenship_country", label: "Citizenship Country" },
 ];
 
+const THEME = {
+  brand: "#16c6a3",
+  brandDark: "#062b2f",
+  brandSoft: "#e9fbf7",
+  text: "#0c1f21",
+  textMuted: "#5e7374",
+  border: "#cfe5df",
+  card: "#ffffff",
+  page: "#f4fbf9",
+  warningBg: "#fff7e8",
+  warningBorder: "#f2d28a",
+  dangerBg: "#fff2f2",
+  dangerBorder: "#f2b8b8",
+};
+
 const geographyConflictDims = ["region", "tallinn_districts"];
 const cityOnlyConflictDims = ["education", "birth_country", "citizenship_country", "settlement_type"];
 
@@ -337,50 +352,62 @@ export default function Page() {
   }
 
   return (
-    <main style={{ padding: 24, maxWidth: 1180, margin: "0 auto", fontFamily: "system-ui" }}>
-      <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 16 }}>Quota Builder</h1>
+    <main style={{ padding: 24, maxWidth: 1180, margin: "0 auto", fontFamily: "system-ui", color: THEME.text }}>
+      <div
+        style={{
+          marginBottom: 18,
+          padding: "18px 22px",
+          borderRadius: 18,
+          background: `linear-gradient(135deg, ${THEME.brand} 0%, #10b89a 100%)`,
+          color: "#fff",
+          boxShadow: "0 12px 36px rgba(6, 43, 47, 0.16)",
+        }}
+      >
+        <div style={{ fontSize: 54, lineHeight: 0.9, fontWeight: 900, letterSpacing: -3, textTransform: "lowercase" }}>norstat</div>
+        <div style={{ fontSize: 17, fontWeight: 700, marginTop: 4, letterSpacing: 0.4 }}>Quota Builder</div>
+      </div>
 
-      <div style={{ border: "1px solid #ddd", borderRadius: 14, padding: 18, marginBottom: 16 }}>
+      <div style={{ border: `1px solid ${THEME.border}`, borderRadius: 18, padding: 18, marginBottom: 16, background: THEME.card, boxShadow: "0 10px 28px rgba(6, 43, 47, 0.08)" }}>
         <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))" }}>
           <label>
-            <div style={{ fontSize: 12, opacity: 0.7 }}>Year</div>
-            <input type="number" value={year} onChange={(e) => setYear(+e.target.value)} style={{ width: "100%" }} />
+            <div style={{ fontSize: 12, color: THEME.textMuted }}>Year</div>
+            <input type="number" value={year} onChange={(e) => setYear(+e.target.value)} style={{ width: "100%", border: `1px solid ${THEME.border}`, borderRadius: 10, padding: "10px 12px" }} />
           </label>
 
           <label>
-            <div style={{ fontSize: 12, opacity: 0.7 }}>Age From</div>
+            <div style={{ fontSize: 12, color: THEME.textMuted }}>Age From</div>
             <input
               type="text"
               inputMode="numeric"
               value={useCustomAgeGroups ? String(effectiveAgeBand.from) : ageFromInput}
               onChange={(e) => handleAgeInputChange(e.target.value, setAgeFromInput, setAgeFrom)}
               onBlur={() => handleAgeInputBlur(ageFromInput, setAgeFromInput, ageFrom)}
-              style={{ width: "100%" }}
+              style={{ width: "100%", border: `1px solid ${THEME.border}`, borderRadius: 10, padding: "10px 12px" }}
               disabled={useCustomAgeGroups}
             />
           </label>
 
           <label>
-            <div style={{ fontSize: 12, opacity: 0.7 }}>Age To</div>
+            <div style={{ fontSize: 12, color: THEME.textMuted }}>Age To</div>
             <input
               type="text"
               inputMode="numeric"
               value={useCustomAgeGroups ? String(effectiveAgeBand.to) : ageToInput}
               onChange={(e) => handleAgeInputChange(e.target.value, setAgeToInput, setAgeTo)}
               onBlur={() => handleAgeInputBlur(ageToInput, setAgeToInput, ageTo)}
-              style={{ width: "100%" }}
+              style={{ width: "100%", border: `1px solid ${THEME.border}`, borderRadius: 10, padding: "10px 12px" }}
               disabled={useCustomAgeGroups}
             />
           </label>
 
           <label>
-            <div style={{ fontSize: 12, opacity: 0.7 }}>Sample N</div>
-            <input type="number" value={sampleN} onChange={(e) => setSampleN(+e.target.value)} style={{ width: "100%" }} />
+            <div style={{ fontSize: 12, color: THEME.textMuted }}>Sample N</div>
+            <input type="number" value={sampleN} onChange={(e) => setSampleN(+e.target.value)} style={{ width: "100%", border: `1px solid ${THEME.border}`, borderRadius: 10, padding: "10px 12px" }} />
           </label>
 
           <label>
-            <div style={{ fontSize: 12, opacity: 0.7 }}>Age Grouping</div>
-            <select value={step} onChange={(e) => setStep(+e.target.value)} style={{ width: "100%" }} disabled={useCustomAgeGroups}>
+            <div style={{ fontSize: 12, color: THEME.textMuted }}>Age Grouping</div>
+            <select value={step} onChange={(e) => setStep(+e.target.value)} style={{ width: "100%", border: `1px solid ${THEME.border}`, borderRadius: 10, padding: "10px 12px" }} disabled={useCustomAgeGroups}>
               <option value={1}>1 (every age)</option>
               <option value={5}>5</option>
               <option value={10}>10</option>
@@ -389,8 +416,8 @@ export default function Page() {
           </label>
 
           <label>
-            <div style={{ fontSize: 12, opacity: 0.7 }}>Sex Filter</div>
-            <select value={sexFilter} onChange={(e) => setSexFilter(e.target.value as "total" | "men" | "women")} style={{ width: "100%" }}>
+            <div style={{ fontSize: 12, color: THEME.textMuted }}>Sex Filter</div>
+            <select value={sexFilter} onChange={(e) => setSexFilter(e.target.value as "total" | "men" | "women")} style={{ width: "100%", border: `1px solid ${THEME.border}`, borderRadius: 10, padding: "10px 12px" }}>
               <option value="total">Total</option>
               <option value="men">Men</option>
               <option value="women">Women</option>
@@ -398,8 +425,8 @@ export default function Page() {
           </label>
 
           <label>
-            <div style={{ fontSize: 12, opacity: 0.7 }}>County Filter</div>
-            <select value={countyFilter} onChange={(e) => setCountyFilter(e.target.value)} style={{ width: "100%" }}>
+            <div style={{ fontSize: 12, color: THEME.textMuted }}>County Filter</div>
+            <select value={countyFilter} onChange={(e) => setCountyFilter(e.target.value)} style={{ width: "100%", border: `1px solid ${THEME.border}`, borderRadius: 10, padding: "10px 12px" }}>
               <option value="">All counties</option>
               {countyOptions.map((option) => (
                 <option key={option.code} value={option.label}>
@@ -410,13 +437,13 @@ export default function Page() {
           </label>
         </div>
 
-        <div style={{ marginTop: 16, border: "1px solid #eee", borderRadius: 12, padding: 14 }}>
+        <div style={{ marginTop: 16, border: `1px solid ${THEME.border}`, borderRadius: 14, padding: 14, background: THEME.brandSoft }}>
           <label style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 700 }}>
             <input type="checkbox" checked={useCustomAgeGroups} onChange={(e) => setUseCustomAgeGroups(e.target.checked)} />
             Use custom age groups
           </label>
 
-          <div style={{ fontSize: 12, opacity: 0.7, marginTop: 6 }}>
+          <div style={{ fontSize: 12, color: THEME.textMuted, marginTop: 6 }}>
             {useCustomAgeGroups
               ? `Active groups: ${customAgeGroupsPreview || "none"}`
               : "Turn this on if you want to define your own age buckets instead of 1/5/10/15-year grouping."}
@@ -428,22 +455,22 @@ export default function Page() {
                 {customAgeGroups.map((band, index) => (
                   <div key={`${index}-${band.from}-${band.to}`} style={{ display: "grid", gap: 10, gridTemplateColumns: "1fr 1fr auto", alignItems: "end" }}>
                     <label>
-                      <div style={{ fontSize: 12, opacity: 0.7 }}>From</div>
+                      <div style={{ fontSize: 12, color: THEME.textMuted }}>From</div>
                       <input
                         type="number"
                         value={band.from}
                         onChange={(e) => updateCustomAgeGroup(index, "from", +e.target.value)}
-                        style={{ width: "100%" }}
+                        style={{ width: "100%", border: `1px solid ${THEME.border}`, borderRadius: 10, padding: "10px 12px" }}
                       />
                     </label>
 
                     <label>
-                      <div style={{ fontSize: 12, opacity: 0.7 }}>To</div>
+                      <div style={{ fontSize: 12, color: THEME.textMuted }}>To</div>
                       <input
                         type="number"
                         value={band.to}
                         onChange={(e) => updateCustomAgeGroup(index, "to", +e.target.value)}
-                        style={{ width: "100%" }}
+                        style={{ width: "100%", border: `1px solid ${THEME.border}`, borderRadius: 10, padding: "10px 12px" }}
                       />
                     </label>
 
@@ -454,7 +481,7 @@ export default function Page() {
                       style={{
                         padding: "10px 12px",
                         borderRadius: 10,
-                        border: "1px solid #ccc",
+                        border: `1px solid ${THEME.border}`,
                         background: "#fff",
                         cursor: customAgeGroups.length === 1 ? "not-allowed" : "pointer",
                       }}
@@ -469,11 +496,11 @@ export default function Page() {
                 <button
                   type="button"
                   onClick={addCustomAgeGroup}
-                  style={{ padding: "10px 14px", borderRadius: 10, border: "1px solid #111", background: "#fff", cursor: "pointer", fontWeight: 700 }}
+                  style={{ padding: "10px 14px", borderRadius: 10, border: `1px solid ${THEME.brandDark}`, background: "#fff", color: THEME.brandDark, cursor: "pointer", fontWeight: 700 }}
                 >
                   Add age group
                 </button>
-                <span style={{ fontSize: 12, opacity: 0.7 }}>
+                <span style={{ fontSize: 12, color: THEME.textMuted }}>
                   Backend will use these exact buckets for the age-group table and the combined age span for grouped source tables.
                 </span>
               </div>
@@ -486,7 +513,7 @@ export default function Page() {
         </div>
 
         <div style={{ marginTop: 14 }}>
-          <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}>Dimensions</div>
+          <div style={{ fontSize: 12, color: THEME.textMuted, marginBottom: 6 }}>Dimensions</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
             {DIMENSIONS.map(({ key, label }) => {
               const on = dims.includes(key);
@@ -498,9 +525,9 @@ export default function Page() {
                   style={{
                     padding: "7px 12px",
                     borderRadius: 999,
-                    border: "1px solid #ccc",
-                    background: on ? "#111" : "#fff",
-                    color: on ? "#fff" : "#111",
+                    border: `1px solid ${on ? THEME.brandDark : THEME.border}`,
+                    background: on ? THEME.brandDark : "#fff",
+                    color: on ? "#fff" : THEME.brandDark,
                     cursor: "pointer",
                     fontSize: 12,
                     fontWeight: 600,
@@ -515,7 +542,7 @@ export default function Page() {
 
         <div style={{ marginTop: 14, display: "grid", gap: 8 }}>
           {countyConflictMessage ? (
-            <div style={{ fontSize: 13, padding: 10, borderRadius: 10, background: "#fff8e8", border: "1px solid #f0d48a" }}>
+            <div style={{ fontSize: 13, padding: 10, borderRadius: 10, background: THEME.warningBg, border: `1px solid ${THEME.warningBorder}` }}>
               {countyConflictMessage}
             </div>
           ) : null}
@@ -528,8 +555,8 @@ export default function Page() {
             style={{
               padding: "10px 14px",
               borderRadius: 10,
-              border: "1px solid #111",
-              background: loading ? "#666" : "#111",
+              border: `1px solid ${THEME.brandDark}`,
+              background: loading ? "#5d7c7d" : THEME.brandDark,
               color: "#fff",
               cursor: loading ? "not-allowed" : "pointer",
               fontWeight: 700,
@@ -544,9 +571,9 @@ export default function Page() {
               style={{
                 padding: "10px 14px",
                 borderRadius: 10,
-                border: "1px solid #111",
+                border: `1px solid ${THEME.brandDark}`,
                 background: "#fff",
-                color: "#111",
+                color: THEME.brandDark,
                 cursor: "pointer",
                 fontWeight: 700,
               }}
@@ -555,13 +582,13 @@ export default function Page() {
             </button>
           ) : null}
 
-          <span style={{ fontSize: 12, opacity: 0.7 }}>
+          <span style={{ fontSize: 12, color: THEME.textMuted }}>
             Backend: <code>{API_BASE ?? "(missing NEXT_PUBLIC_API_BASE)"}</code>
           </span>
         </div>
 
         {err ? (
-          <pre style={{ marginTop: 12, background: "#fff4f4", border: "1px solid #f0c2c2", padding: 12, borderRadius: 10, overflow: "auto" }}>
+          <pre style={{ marginTop: 12, background: THEME.dangerBg, border: `1px solid ${THEME.dangerBorder}`, padding: 12, borderRadius: 10, overflow: "auto" }}>
             {err}
           </pre>
         ) : null}
@@ -569,18 +596,18 @@ export default function Page() {
 
       {data ? (
         <>
-          <div style={{ border: "1px solid #ddd", borderRadius: 14, padding: 16, marginBottom: 16 }}>
+          <div style={{ border: `1px solid ${THEME.border}`, borderRadius: 14, padding: 16, marginBottom: 16, background: THEME.brandSoft }}>
             <div style={{ fontWeight: 800 }}>Population total: {data.population_total.toLocaleString()}</div>
-            <div style={{ fontSize: 13, opacity: 0.8 }}>Sample N: {data.sample_n.toLocaleString()}</div>
+            <div style={{ fontSize: 13, color: THEME.textMuted }}>Sample N: {data.sample_n.toLocaleString()}</div>
           </div>
 
           {Object.entries(data.results).map(([dim, res]) => (
-            <div key={dim} style={{ border: "1px solid #ddd", borderRadius: 14, padding: 16, marginBottom: 16 }}>
-              <div style={{ fontSize: 20, fontWeight: 800, marginBottom: 6 }}>{prettyDim(dim)}</div>
+            <div key={dim} style={{ border: `1px solid ${THEME.border}`, borderRadius: 14, padding: 16, marginBottom: 16, background: "#fff" }}>
+              <div style={{ fontSize: 20, fontWeight: 800, marginBottom: 6, color: THEME.brandDark }}>{prettyDim(dim)}</div>
 
               {res.notes?.length ? (
                 <div style={{ marginBottom: 10 }}>
-                  <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}>Notes / warnings</div>
+                  <div style={{ fontSize: 12, color: THEME.textMuted, marginBottom: 6 }}>Notes / warnings</div>
                   <ul style={{ margin: 0, paddingLeft: 18 }}>
                     {res.notes.map((note, index) => (
                       <li key={index} style={{ fontSize: 13, marginBottom: 4 }}>
@@ -591,29 +618,29 @@ export default function Page() {
                 </div>
               ) : null}
 
-              <div style={{ fontSize: 13, opacity: 0.8, marginBottom: 8 }}>Base: {res.base.toLocaleString()}</div>
+              <div style={{ fontSize: 13, color: THEME.textMuted, marginBottom: 8 }}>Base: {res.base.toLocaleString()}</div>
 
               <div style={{ overflow: "auto" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead>
                     <tr>
-                      <th style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: "6px 8px" }}>Label</th>
-                      <th style={{ textAlign: "right", borderBottom: "1px solid #ddd", padding: "6px 8px" }}>Population</th>
-                      <th style={{ textAlign: "right", borderBottom: "1px solid #ddd", padding: "6px 8px" }}>Share %</th>
-                      <th style={{ textAlign: "right", borderBottom: "1px solid #ddd", padding: "6px 8px" }}>Quota</th>
+                      <th style={{ textAlign: "left", borderBottom: `1px solid ${THEME.border}`, padding: "6px 8px", color: THEME.textMuted }}>Label</th>
+                      <th style={{ textAlign: "right", borderBottom: `1px solid ${THEME.border}`, padding: "6px 8px", color: THEME.textMuted }}>Population</th>
+                      <th style={{ textAlign: "right", borderBottom: `1px solid ${THEME.border}`, padding: "6px 8px", color: THEME.textMuted }}>Share %</th>
+                      <th style={{ textAlign: "right", borderBottom: `1px solid ${THEME.border}`, padding: "6px 8px", color: THEME.textMuted }}>Quota</th>
                     </tr>
                   </thead>
                   <tbody>
                     {res.cells.map((cell) => (
                       <tr key={cell.id}>
-                        <td style={{ borderBottom: "1px solid #f0f0f0", padding: "6px 8px" }}>{cell.label}</td>
-                        <td style={{ borderBottom: "1px solid #f0f0f0", padding: "6px 8px", textAlign: "right" }}>
+                        <td style={{ borderBottom: `1px solid ${THEME.brandSoft}`, padding: "6px 8px" }}>{cell.label}</td>
+                        <td style={{ borderBottom: `1px solid ${THEME.brandSoft}`, padding: "6px 8px", textAlign: "right" }}>
                           {cell.pop.toLocaleString()}
                         </td>
-                        <td style={{ borderBottom: "1px solid #f0f0f0", padding: "6px 8px", textAlign: "right" }}>
+                        <td style={{ borderBottom: `1px solid ${THEME.brandSoft}`, padding: "6px 8px", textAlign: "right" }}>
                           {(cell.share * 100).toFixed(2)}
                         </td>
-                        <td style={{ borderBottom: "1px solid #f0f0f0", padding: "6px 8px", textAlign: "right", fontWeight: 800 }}>
+                        <td style={{ borderBottom: `1px solid ${THEME.brandSoft}`, padding: "6px 8px", textAlign: "right", fontWeight: 800, color: THEME.brandDark }}>
                           {cell.quota}
                         </td>
                       </tr>
@@ -625,7 +652,7 @@ export default function Page() {
           ))}
 
           {Object.keys(visibleMetaErrors).length > 0 ? (
-            <div style={{ border: "1px solid #ddd", borderRadius: 14, padding: 16 }}>
+            <div style={{ border: `1px solid ${THEME.dangerBorder}`, borderRadius: 14, padding: 16, background: THEME.dangerBg }}>
               <div style={{ fontWeight: 800, marginBottom: 6 }}>Some dimensions failed</div>
               <pre style={{ margin: 0, overflow: "auto" }}>{JSON.stringify(visibleMetaErrors, null, 2)}</pre>
             </div>
