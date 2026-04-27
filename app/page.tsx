@@ -231,10 +231,10 @@ export default function Page() {
           .join(", ")} to continue.`;
       }
       if (countyFilter === "Tartu linn") {
-        return "Education Filter does not support Tartu linn, because RV0231U contains Tallinn city but not Tartu city.";
+        return "Education Filter does not support Tartu linn. Statistikaameti RV0231U table includes Tallinn city separately, but not Tartu city.";
       }
       if (dims.includes("tallinn_districts")) {
-        return "Education Filter does not support Tallinn Districts, because RV0231U has no district-level breakdown.";
+        return "Education Filter does not support Tallinn Districts. Statistikaameti RV0231U table has no district-level breakdown.";
       }
     }
     return null;
