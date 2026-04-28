@@ -240,6 +240,16 @@ export default function Page() {
     return null;
   }, [dims, educationFilter, nationalityFilter, countyFilter]);
 
+  const groupedAgeSourceMessage = useMemo(() => {
+    if (nationalityFilter !== "all") {
+      return "Age Grouping does not change Nationality-filtered age groups. RV022U uses published age-group buckets from Statistikaamet.";
+    }
+    if (educationFilter !== "all") {
+      return "Age Grouping does not change Education-filtered age groups. RV0231U uses published age-group buckets from Statistikaamet.";
+    }
+    return null;
+  }, [educationFilter, nationalityFilter]);
+
   const formWarningMessage = useMemo(() => {
     const parts = [countyConflictMessage, sourceFilterMessage].filter(Boolean);
     if (!parts.length) {
@@ -474,7 +484,12 @@ export default function Page() {
 
           <label>
             <div style={{ fontSize: 12, color: THEME.textMuted }}>Age Grouping</div>
-            <select value={step} onChange={(e) => setStep(+e.target.value)} style={{ width: "100%", border: `1px solid ${THEME.border}`, borderRadius: 10, padding: "10px 12px" }} disabled={useCustomAgeGroups}>
+            <select
+              value={step}
+              onChange={(e) => setStep(+e.target.value)}
+              style={{ width: "100%", border: `1px solid ${THEME.border}`, borderRadius: 10, padding: "10px 12px" }}
+              disabled={useCustomAgeGroups || Boolean(groupedAgeSourceMessage)}
+            >
               <option value={1}>1 (every age)</option>
               <option value={5}>5</option>
               <option value={10}>10</option>
@@ -629,6 +644,11 @@ export default function Page() {
         </div>
 
         <div style={{ marginTop: 14, display: "grid", gap: 8 }}>
+          {groupedAgeSourceMessage ? (
+            <div style={{ fontSize: 13, padding: 10, borderRadius: 10, background: THEME.brandSoft, border: `1px solid ${THEME.border}` }}>
+              {groupedAgeSourceMessage}
+            </div>
+          ) : null}
           {formWarningMessage ? (
             <div style={{ fontSize: 13, padding: 10, borderRadius: 10, background: THEME.warningBg, border: `1px solid ${THEME.warningBorder}` }}>
               {formWarningMessage}
