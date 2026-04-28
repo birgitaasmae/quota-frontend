@@ -242,10 +242,10 @@ export default function Page() {
 
   const groupedAgeSourceMessage = useMemo(() => {
     if (nationalityFilter !== "all") {
-      return "Age Grouping does not change Nationality-filtered age groups. RV022U uses published age-group buckets from Statistikaamet.";
+      return "Nationality uses published 5-year age groups from Statistikaamet. Age Grouping 10 and 15 will sum those source groups; 1-year grouping is not available there.";
     }
     if (educationFilter !== "all") {
-      return "Age Grouping does not change Education-filtered age groups. RV0231U uses published age-group buckets from Statistikaamet.";
+      return "Education uses published 5-year age groups from Statistikaamet. Age Grouping 10 and 15 will sum those source groups; 1-year grouping is not available there.";
     }
     return null;
   }, [educationFilter, nationalityFilter]);
@@ -488,7 +488,7 @@ export default function Page() {
               value={step}
               onChange={(e) => setStep(+e.target.value)}
               style={{ width: "100%", border: `1px solid ${THEME.border}`, borderRadius: 10, padding: "10px 12px" }}
-              disabled={useCustomAgeGroups || Boolean(groupedAgeSourceMessage)}
+              disabled={useCustomAgeGroups}
             >
               <option value={1}>1 (every age)</option>
               <option value={5}>5</option>
