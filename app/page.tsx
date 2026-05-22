@@ -52,6 +52,14 @@ const THEME = {
   dangerBorder: "#f2b8b8",
 };
 
+const AGE_SEX_CROSS_KEY = "age_sex_cross";
+const CITY_PARENT_COUNTY: Record<string, string> = {
+  "Tallinna linn": "Harju Maakond",
+  "Tartu linn": "Tartu Maakond",
+};
+const EDUCATION_HELP_TEXT =
+  "Education follows RV0231U. Basic includes no education, primary, and lower secondary. Secondary includes general secondary and vocational secondary. Higher includes post-secondary professional, applied higher, bachelor's, master's, and doctorate.";
+
 const geographyConflictDims = ["region", "tallinn_districts"];
 const cityOnlyConflictDims = ["education", "birth_country", "citizenship_country", "settlement_type"];
 
@@ -100,6 +108,7 @@ export default function Page() {
 
   const [sexFilter, setSexFilter] = useState<"total" | "men" | "women">("total");
   const [countyFilter, setCountyFilter] = useState("");
+  const [cityFilter, setCityFilter] = useState("");
   const [nationalityFilter, setNationalityFilter] = useState<NationalityFilter>("all");
   const [educationFilter, setEducationFilter] = useState<EducationFilter>("all");
   const [countyOptions, setCountyOptions] = useState<CountyOption[]>([]);
@@ -142,6 +151,18 @@ export default function Page() {
     };
   }, []);
 
+  const countyOnlyOptions = useMemo(
+    () => countyOptions.filter((option) => !(option.label in CITY_PARENT_COUNTY)),
+    [countyOptions]
+  );
+
+  const cityOptions = useMemo(
+    () => countyOptions.filter((option) => option.label in CITY_PARENT_COUNTY),
+    [countyOptions]
+  );
+
+  const activeLocationFilter = cityFilter || countyFilter;
+
   const customAgeGroupsError = useMemo(
     () => (useCustomAgeGroups ? validateAgeBands(customAgeGroups) : null),
     [customAgeGroups, useCustomAgeGroups]
@@ -166,19 +187,19 @@ export default function Page() {
       if (!geographyConflictDims.includes(dim)) {
         return false;
       }
-      if (dim === "tallinn_districts" && isTallinnCounty(countyFilter)) {
+      if (dim === "tallinn_districts" && isTallinnCounty(activeLocationFilter)) {
         return false;
       }
       return true;
     });
-  }, [dims, countyFilter]);
-  const cityCountySelected = countyFilter === "Tallinna linn" || countyFilter === "Tartu linn";
+  }, [dims, activeLocationFilter]);
+  const cityCountySelected = Boolean(cityFilter);
   const cityCountyConflictDims = useMemo(
     () => dims.filter((dim) => cityOnlyConflictDims.includes(dim)),
     [dims]
   );
   const countyConflictMessage = useMemo(() => {
-    if (!countyFilter) {
+    if (!activeLocationFilter) {
       return null;
     }
     const parts: string[] = [];
@@ -190,7 +211,7 @@ export default function Page() {
     if (cityCountySelected && cityCountyConflictDims.length > 0) {
       const blockedForCity = cityCountyConflictDims.filter((dim) => {
         if (dim === "education") {
-          return countyFilter === "Tartu linn";
+          return cityFilter === "Tartu linn";
         }
         return true;
       });
@@ -203,8 +224,8 @@ export default function Page() {
     if (parts.length === 0) {
       return null;
     }
-    return `${countyFilter} does not work with ${parts.join("; ")}.`;
-  }, [countyFilter, countyConflictDims, cityCountySelected, cityCountyConflictDims]);
+    return `${activeLocationFilter} does not work with ${parts.join("; ")}.`;
+  }, [activeLocationFilter, cityCountyConflictDims, cityCountySelected, cityFilter, countyConflictDims]);
 
   const sourceFilterMessage = useMemo(() => {
     if (nationalityFilter !== "all" && educationFilter !== "all") {
@@ -218,7 +239,7 @@ export default function Page() {
           .map(prettyDim)
           .join(", ")} to continue.`;
       }
-      if (dims.includes("tallinn_districts") && countyFilter && countyFilter !== "Tallinna linn") {
+      if (dims.includes("tallinn_districts") && activeLocationFilter && activeLocationFilter !== "Tallinna linn") {
         return "Nationality Filter can use Tallinn Districts only when County Filter is Tallinna linn.";
       }
     }
@@ -230,7 +251,7 @@ export default function Page() {
           .map(prettyDim)
           .join(", ")} to continue.`;
       }
-      if (countyFilter === "Tartu linn") {
+      if (cityFilter === "Tartu linn") {
         return "Education Filter does not support Tartu linn. Statistikaameti RV0231U table includes Tallinn city separately, but not Tartu city.";
       }
       if (dims.includes("tallinn_districts")) {
@@ -238,17 +259,23 @@ export default function Page() {
       }
     }
     return null;
-  }, [dims, educationFilter, nationalityFilter, countyFilter]);
+  }, [activeLocationFilter, cityFilter, dims, educationFilter, nationalityFilter]);
 
   const groupedAgeSourceMessage = useMemo(() => {
     if (nationalityFilter !== "all") {
-      return "Nationality uses published 5-year age groups from Statistikaamet. Age Grouping 10 and 15 will sum those source groups; 1-year grouping is not available there.";
+      if (step === 1) {
+        return "Nationality uses published 5-year age groups from Statistikaamet. 1-year grouping is not available there.";
+      }
+      return null;
     }
     if (educationFilter !== "all") {
-      return "Education uses published 5-year age groups from Statistikaamet. Age Grouping 10 and 15 will sum those source groups; 1-year grouping is not available there.";
+      if (step === 1) {
+        return "Education uses published 5-year age groups from Statistikaamet. 1-year grouping is not available there.";
+      }
+      return null;
     }
     return null;
-  }, [educationFilter, nationalityFilter]);
+  }, [educationFilter, nationalityFilter, step]);
 
   const formWarningMessage = useMemo(() => {
     const parts = [countyConflictMessage, sourceFilterMessage].filter(Boolean);
@@ -264,14 +291,46 @@ export default function Page() {
       entries.filter(([key, value]) => {
         const detail = value as MetaError;
         const expectedCountyConflict =
-          countyFilter &&
+          activeLocationFilter &&
           geographyConflictDims.includes(key) &&
           typeof detail?.msg === "string" &&
           detail.msg.includes("county_filter is not supported");
         return !expectedCountyConflict;
       })
     );
-  }, [countyFilter, data]);
+  }, [activeLocationFilter, data]);
+
+  const regularResults = useMemo(
+    () => Object.entries(data?.results ?? {}).filter(([dim]) => dim !== AGE_SEX_CROSS_KEY),
+    [data]
+  );
+
+  const ageSexCrossResult = data?.results[AGE_SEX_CROSS_KEY] ?? null;
+
+  const ageSexCrossMatrix = useMemo(() => {
+    if (!ageSexCrossResult) {
+      return null;
+    }
+    const sexLabels: string[] = [];
+    const ageLabels: string[] = [];
+    const valueMap: Record<string, QuotaCell> = {};
+
+    for (const cell of ageSexCrossResult.cells) {
+      const [sexLabel, ageLabel] = cell.label.split(" | ");
+      if (!sexLabel || !ageLabel) {
+        continue;
+      }
+      if (!sexLabels.includes(sexLabel)) {
+        sexLabels.push(sexLabel);
+      }
+      if (!ageLabels.includes(ageLabel)) {
+        ageLabels.push(ageLabel);
+      }
+      valueMap[`${sexLabel}__${ageLabel}`] = cell;
+    }
+
+    return { sexLabels, ageLabels, valueMap };
+  }, [ageSexCrossResult]);
 
   const payload = useMemo(
     () => ({
@@ -281,7 +340,7 @@ export default function Page() {
       age_grouping_years: step,
       dimensions: dims,
       sex_filter: sexFilter,
-      county_filter: countyFilter || undefined,
+      county_filter: activeLocationFilter || undefined,
       nationality_filter: nationalityFilter,
       education_filter: educationFilter,
       custom_age_groups: useCustomAgeGroups ? customAgeGroups : [],
@@ -293,7 +352,9 @@ export default function Page() {
       step,
       dims,
       sexFilter,
+      activeLocationFilter,
       countyFilter,
+      cityFilter,
       nationalityFilter,
       educationFilter,
       useCustomAgeGroups,
@@ -508,9 +569,41 @@ export default function Page() {
 
           <label>
             <div style={{ fontSize: 12, color: THEME.textMuted }}>County Filter</div>
-            <select value={countyFilter} onChange={(e) => setCountyFilter(e.target.value)} style={{ width: "100%", border: `1px solid ${THEME.border}`, borderRadius: 10, padding: "10px 12px" }}>
+            <select
+              value={countyFilter}
+              onChange={(e) => {
+                const nextCounty = e.target.value;
+                setCountyFilter(nextCounty);
+                if (cityFilter && CITY_PARENT_COUNTY[cityFilter] !== nextCounty) {
+                  setCityFilter("");
+                }
+              }}
+              style={{ width: "100%", border: `1px solid ${THEME.border}`, borderRadius: 10, padding: "10px 12px" }}
+            >
               <option value="">All counties</option>
-              {countyOptions.map((option) => (
+              {countyOnlyOptions.map((option) => (
+                <option key={option.code} value={option.label}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            <div style={{ fontSize: 12, color: THEME.textMuted }}>City Filter</div>
+            <select
+              value={cityFilter}
+              onChange={(e) => {
+                const nextCity = e.target.value;
+                setCityFilter(nextCity);
+                if (nextCity && CITY_PARENT_COUNTY[nextCity]) {
+                  setCountyFilter(CITY_PARENT_COUNTY[nextCity]);
+                }
+              }}
+              style={{ width: "100%", border: `1px solid ${THEME.border}`, borderRadius: 10, padding: "10px 12px" }}
+            >
+              <option value="">All cities</option>
+              {cityOptions.map((option) => (
                 <option key={option.code} value={option.label}>
                   {option.label}
                 </option>
@@ -540,6 +633,16 @@ export default function Page() {
           </label>
         </div>
 
+        {cityFilter ? (
+          <div style={{ marginTop: 10, fontSize: 12, color: THEME.textMuted }}>
+            {cityFilter} is inside {CITY_PARENT_COUNTY[cityFilter]}. City selection is used as the active location filter.
+          </div>
+        ) : null}
+
+        <div style={{ marginTop: 10, fontSize: 12, color: THEME.textMuted }}>
+          {EDUCATION_HELP_TEXT}
+        </div>
+
         <div style={{ marginTop: 16, border: `1px solid ${THEME.border}`, borderRadius: 14, padding: 14, background: THEME.brandSoft }}>
           <label style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 700 }}>
             <input type="checkbox" checked={useCustomAgeGroups} onChange={(e) => setUseCustomAgeGroups(e.target.checked)} />
@@ -556,7 +659,7 @@ export default function Page() {
             <div style={{ marginTop: 12 }}>
               <div style={{ display: "grid", gap: 10 }}>
                 {customAgeGroups.map((band, index) => (
-                  <div key={`${index}-${band.from}-${band.to}`} style={{ display: "grid", gap: 10, gridTemplateColumns: "1fr 1fr auto", alignItems: "end" }}>
+                  <div key={index} style={{ display: "grid", gap: 10, gridTemplateColumns: "1fr 1fr auto", alignItems: "end" }}>
                     <label>
                       <div style={{ fontSize: 12, color: THEME.textMuted }}>From</div>
                       <input
@@ -706,7 +809,7 @@ export default function Page() {
             <div style={{ fontSize: 13, color: THEME.textMuted }}>Sample N: {data.sample_n.toLocaleString()}</div>
           </div>
 
-          {Object.entries(data.results).map(([dim, res]) => (
+          {regularResults.map(([dim, res]) => (
             <div key={dim} style={{ border: `1px solid ${THEME.border}`, borderRadius: 14, padding: 16, marginBottom: 16, background: "#fff" }}>
               <div style={{ fontSize: 20, fontWeight: 800, marginBottom: 6, color: THEME.brandDark }}>{prettyDim(dim)}</div>
 
@@ -755,6 +858,56 @@ export default function Page() {
               </div>
             </div>
           ))}
+
+          {ageSexCrossResult && ageSexCrossMatrix ? (
+            <div style={{ border: `1px solid ${THEME.border}`, borderRadius: 14, padding: 16, marginBottom: 16, background: "#fff" }}>
+              <div style={{ fontSize: 20, fontWeight: 800, marginBottom: 6, color: THEME.brandDark }}>Age × Sex Cross Quotas</div>
+              {ageSexCrossResult.notes?.length ? (
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ fontSize: 12, color: THEME.textMuted, marginBottom: 6 }}>Notes / warnings</div>
+                  <ul style={{ margin: 0, paddingLeft: 18 }}>
+                    {ageSexCrossResult.notes.map((note, index) => (
+                      <li key={index} style={{ fontSize: 13, marginBottom: 4 }}>
+                        {note}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+              <div style={{ fontSize: 13, color: THEME.textMuted, marginBottom: 8 }}>
+                Base: {ageSexCrossResult.base.toLocaleString()}
+              </div>
+              <div style={{ overflow: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead>
+                    <tr>
+                      <th style={{ textAlign: "left", borderBottom: `1px solid ${THEME.border}`, padding: "6px 8px", color: THEME.textMuted }}>Sex</th>
+                      {ageSexCrossMatrix.ageLabels.map((ageLabel) => (
+                        <th key={ageLabel} style={{ textAlign: "right", borderBottom: `1px solid ${THEME.border}`, padding: "6px 8px", color: THEME.textMuted }}>
+                          {ageLabel}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {ageSexCrossMatrix.sexLabels.map((sexLabel) => (
+                      <tr key={sexLabel}>
+                        <td style={{ borderBottom: `1px solid ${THEME.brandSoft}`, padding: "6px 8px", fontWeight: 700 }}>{sexLabel}</td>
+                        {ageSexCrossMatrix.ageLabels.map((ageLabel) => {
+                          const cell = ageSexCrossMatrix.valueMap[`${sexLabel}__${ageLabel}`];
+                          return (
+                            <td key={`${sexLabel}-${ageLabel}`} style={{ borderBottom: `1px solid ${THEME.brandSoft}`, padding: "6px 8px", textAlign: "right" }}>
+                              {cell ? `${cell.quota} (${(cell.share * 100).toFixed(1)}%)` : "0"}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : null}
 
           {Object.keys(visibleMetaErrors).length > 0 ? (
             <div style={{ border: `1px solid ${THEME.dangerBorder}`, borderRadius: 14, padding: 16, background: THEME.dangerBg }}>
