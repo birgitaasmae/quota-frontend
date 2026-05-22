@@ -166,8 +166,7 @@ export default function Page() {
   const [step, setStep] = useState(10);
 
   const [sexFilter, setSexFilter] = useState<"total" | "men" | "women">("total");
-  const [countyFilter, setCountyFilter] = useState("");
-  const [cityFilter, setCityFilter] = useState("");
+  const [locationFilters, setLocationFilters] = useState<string[]>([]);
   const [nationalityFilter, setNationalityFilter] = useState<NationalityFilter>("all");
   const [educationFilter, setEducationFilter] = useState<EducationFilter>("all");
   const [languageFilter, setLanguageFilter] = useState<LanguageFilter>("all");
@@ -219,17 +218,12 @@ export default function Page() {
     };
   }, []);
 
-  const countyOnlyOptions = useMemo(
-    () => countyOptions.filter((option) => !(option.label in CITY_PARENT_COUNTY)),
-    [countyOptions]
+  const activeLocationLabel = useMemo(() => locationFilters.join(", "), [locationFilters]);
+  const selectedCityFilters = useMemo(
+    () => locationFilters.filter((label) => label in CITY_PARENT_COUNTY),
+    [locationFilters]
   );
-
-  const cityOptions = useMemo(
-    () => countyOptions.filter((option) => option.label in CITY_PARENT_COUNTY),
-    [countyOptions]
-  );
-
-  const activeLocationFilter = cityFilter || countyFilter;
+  const hasOnlyTallinnLocation = locationFilters.length === 1 && locationFilters[0] === "Tallinna linn";
 
   const customAgeGroupsError = useMemo(
     () => (useCustomAgeGroups ? validateAgeBands(customAgeGroups) : null),
@@ -258,19 +252,29 @@ export default function Page() {
       if (!geographyConflictDims.includes(dim)) {
         return false;
       }
-      if (dim === "tallinn_districts" && isTallinnCounty(activeLocationFilter)) {
+      if (dim === "tallinn_districts" && hasOnlyTallinnLocation) {
         return false;
       }
       return true;
     });
-  }, [dims, activeLocationFilter]);
-  const cityCountySelected = Boolean(cityFilter);
+  }, [dims, hasOnlyTallinnLocation]);
+  const cityCountySelected = selectedCityFilters.length > 0;
   const cityCountyConflictDims = useMemo(
     () => dims.filter((dim) => cityOnlyConflictDims.includes(dim)),
     [dims]
   );
+  const overlappingLocationMessage = useMemo(() => {
+    const selected = new Set(locationFilters);
+    if (selected.has("Harju Maakond") && selected.has("Tallinna linn")) {
+      return "Do not select Harju Maakond together with Tallinna linn, because Tallinn is already inside Harju county and would be double-counted.";
+    }
+    if (selected.has("Tartu Maakond") && selected.has("Tartu linn")) {
+      return "Do not select Tartu Maakond together with Tartu linn, because Tartu city is already inside Tartu county and would be double-counted.";
+    }
+    return null;
+  }, [locationFilters]);
   const countyConflictMessage = useMemo(() => {
-    if (!activeLocationFilter) {
+    if (!locationFilters.length) {
       return null;
     }
     const parts: string[] = [];
@@ -282,7 +286,7 @@ export default function Page() {
     if (cityCountySelected && cityCountyConflictDims.length > 0) {
       const blockedForCity = cityCountyConflictDims.filter((dim) => {
         if (dim === "education") {
-          return cityFilter === "Tartu linn";
+          return selectedCityFilters.includes("Tartu linn");
         }
         return true;
       });
@@ -295,8 +299,8 @@ export default function Page() {
     if (parts.length === 0) {
       return null;
     }
-    return `${activeLocationFilter} does not work with ${parts.join("; ")}.`;
-  }, [activeLocationFilter, cityCountyConflictDims, cityCountySelected, cityFilter, countyConflictDims]);
+    return `${activeLocationLabel} does not work with ${parts.join("; ")}.`;
+  }, [activeLocationLabel, cityCountyConflictDims, cityCountySelected, countyConflictDims, locationFilters.length, selectedCityFilters]);
 
   const sourceFilterMessage = useMemo(() => {
     const activeSourceFilters = [
@@ -315,7 +319,7 @@ export default function Page() {
           .map(prettyDim)
           .join(", ")} to continue.`;
       }
-      if (dims.includes("tallinn_districts") && activeLocationFilter && activeLocationFilter !== "Tallinna linn") {
+      if (dims.includes("tallinn_districts") && locationFilters.length > 0 && !hasOnlyTallinnLocation) {
         return "Nationality Filter can use Tallinn Districts only when County Filter is Tallinna linn.";
       }
     }
@@ -330,7 +334,7 @@ export default function Page() {
           .map(prettyDim)
           .join(", ")} to continue.`;
       }
-      if (dims.includes("tallinn_districts") && activeLocationFilter && activeLocationFilter !== "Tallinna linn") {
+      if (dims.includes("tallinn_districts") && locationFilters.length > 0 && !hasOnlyTallinnLocation) {
         return "Language Filter can use Tallinn Districts only when County Filter is Tallinna linn.";
       }
     }
@@ -342,7 +346,7 @@ export default function Page() {
           .map(prettyDim)
           .join(", ")} to continue.`;
       }
-      if (cityFilter === "Tartu linn") {
+      if (selectedCityFilters.includes("Tartu linn")) {
         return "Education Filter does not support Tartu linn. Statistikaameti RV0231U table includes Tallinn city separately, but not Tartu city.";
       }
       if (dims.includes("tallinn_districts")) {
@@ -353,7 +357,7 @@ export default function Page() {
       return "Language output uses Statistikaamet 2021 census mother tongue table RL21434. Set Year to 2021 to continue.";
     }
     return null;
-  }, [activeLocationFilter, cityFilter, dims, educationFilter, languageFilter, nationalityFilter, year]);
+  }, [dims, educationFilter, hasOnlyTallinnLocation, languageFilter, locationFilters.length, nationalityFilter, selectedCityFilters, year]);
 
   const groupedAgeSourceMessage = useMemo(() => {
     if (nationalityFilter !== "all") {
@@ -362,7 +366,7 @@ export default function Page() {
       }
       return null;
     }
-    if (languageFilter !== "all" || dims.includes("language")) {
+    if (dims.includes("language")) {
       if (step === 1) {
         return "Language uses published 5-year age groups from Statistikaamet 2021 census table RL21434. 1-year grouping is not available there.";
       }
@@ -378,12 +382,12 @@ export default function Page() {
   }, [dims, educationFilter, languageFilter, nationalityFilter, step]);
 
   const formWarningMessage = useMemo(() => {
-    const parts = [countyConflictMessage, sourceFilterMessage].filter(Boolean);
+    const parts = [overlappingLocationMessage, countyConflictMessage, sourceFilterMessage].filter(Boolean);
     if (!parts.length) {
       return null;
     }
     return parts.join(" ");
-  }, [countyConflictMessage, sourceFilterMessage]);
+  }, [countyConflictMessage, overlappingLocationMessage, sourceFilterMessage]);
 
   const visibleMetaErrors = useMemo(() => {
     const entries = Object.entries(data?.meta?.errors ?? {});
@@ -391,14 +395,14 @@ export default function Page() {
       entries.filter(([key, value]) => {
         const detail = value as MetaError;
         const expectedCountyConflict =
-          activeLocationFilter &&
+          locationFilters.length > 0 &&
           geographyConflictDims.includes(key) &&
           typeof detail?.msg === "string" &&
           detail.msg.includes("county_filter is not supported");
         return !expectedCountyConflict;
       })
     );
-  }, [activeLocationFilter, data]);
+  }, [data, locationFilters.length]);
 
   const regularResults = useMemo(
     () => Object.entries(data?.results ?? {}).filter(([dim]) => dim !== AGE_SEX_CROSS_KEY),
@@ -440,7 +444,7 @@ export default function Page() {
       age_grouping_years: step,
       dimensions: dims,
       sex_filter: sexFilter,
-      county_filter: activeLocationFilter || undefined,
+      county_filters: locationFilters,
       nationality_filter: nationalityFilter,
       education_filter: educationFilter,
       language_filter: languageFilter,
@@ -453,9 +457,7 @@ export default function Page() {
       step,
       dims,
       sexFilter,
-      activeLocationFilter,
-      countyFilter,
-      cityFilter,
+      locationFilters,
       nationalityFilter,
       educationFilter,
       languageFilter,
@@ -688,42 +690,17 @@ export default function Page() {
           </label>
 
           <label>
-            <div style={{ fontSize: 12, color: THEME.textMuted }}>County Filter</div>
+            <div style={{ fontSize: 12, color: THEME.textMuted }}>Location Filter</div>
             <select
-              value={countyFilter}
+              multiple
+              value={locationFilters}
               onChange={(e) => {
-                const nextCounty = e.target.value;
-                setCountyFilter(nextCounty);
-                if (cityFilter && CITY_PARENT_COUNTY[cityFilter] !== nextCounty) {
-                  setCityFilter("");
-                }
+                const values = Array.from(e.target.selectedOptions).map((option) => option.value);
+                setLocationFilters(values);
               }}
-              style={{ width: "100%", border: `1px solid ${THEME.border}`, borderRadius: 10, padding: "10px 12px" }}
+              style={{ width: "100%", minHeight: 140, border: `1px solid ${THEME.border}`, borderRadius: 10, padding: "10px 12px" }}
             >
-              <option value="">All counties</option>
-              {countyOnlyOptions.map((option) => (
-                <option key={option.code} value={option.label}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label>
-            <div style={{ fontSize: 12, color: THEME.textMuted }}>City Filter</div>
-            <select
-              value={cityFilter}
-              onChange={(e) => {
-                const nextCity = e.target.value;
-                setCityFilter(nextCity);
-                if (nextCity && CITY_PARENT_COUNTY[nextCity]) {
-                  setCountyFilter(CITY_PARENT_COUNTY[nextCity]);
-                }
-              }}
-              style={{ width: "100%", border: `1px solid ${THEME.border}`, borderRadius: 10, padding: "10px 12px" }}
-            >
-              <option value="">All cities</option>
-              {cityOptions.map((option) => (
+              {countyOptions.map((option) => (
                 <option key={option.code} value={option.label}>
                   {option.label}
                 </option>
@@ -763,15 +740,17 @@ export default function Page() {
           </label>
         </div>
 
-        {cityFilter ? (
+        {selectedCityFilters.length > 0 ? (
           <div style={{ marginTop: 10, fontSize: 12, color: THEME.textMuted }}>
-            {cityFilter} is inside {CITY_PARENT_COUNTY[cityFilter]}. City selection is used as the active location filter.
+            Cities stay inside the same Location Filter list. Do not select a city together with its parent county, or the same population would be counted twice.
           </div>
         ) : null}
 
-        <div style={{ marginTop: 10, fontSize: 12, color: THEME.textMuted }}>
+        {dims.includes("language") ? (
+          <div style={{ marginTop: 10, fontSize: 12, color: THEME.textMuted }}>
           {LANGUAGE_HELP_TEXT}
-        </div>
+          </div>
+        ) : null}
 
         <div style={{ marginTop: 16, border: `1px solid ${THEME.border}`, borderRadius: 14, padding: 14, background: THEME.brandSoft }}>
           <label style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 700 }}>
