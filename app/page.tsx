@@ -6,13 +6,13 @@ import * as XLSX from "xlsx";
 
 type QuotaCell = { id: string; label: string; pop: number; share: number; quota: number };
 type DimensionResult = { base: number; cells: QuotaCell[]; notes?: string[] };
+type QuotaMetaSource = { source?: string; mode?: string };
+type QuotaMeta = { errors?: Record<string, unknown>; base?: QuotaMetaSource; sources?: QuotaMetaSource[] };
 type QuotaResponse = {
   population_total: number;
   sample_n: number;
   results: Record<string, DimensionResult>;
-  meta?: {
-    errors?: Record<string, unknown>;
-  };
+  meta?: QuotaMeta;
 };
 type MetaError = {
   msg?: string;
@@ -21,8 +21,10 @@ type MetaError = {
 type CountyOption = { code: string; label: string };
 type CountyOptionsResponse = { items: CountyOption[] };
 type AgeBandInput = { from: number; to: number };
+type AgeBandTextInput = { from: string; to: string };
 type NationalityFilter = "all" | "estonian" | "russian" | "ukrainian" | "other";
 type EducationFilter = "all" | "basic" | "secondary" | "higher";
+type LanguageFilter = "all" | "estonian" | "russian" | "other";
 
 const DIMENSIONS: Array<{ key: string; label: string }> = [
   { key: "sex", label: "Sex" },
@@ -33,6 +35,7 @@ const DIMENSIONS: Array<{ key: string; label: string }> = [
   { key: "settlement_type", label: "Settlement Type" },
   { key: "education", label: "Education" },
   { key: "nationality", label: "Nationality" },
+  { key: "language", label: "Language" },
   { key: "birth_country", label: "Birth Country" },
   { key: "citizenship_country", label: "Citizenship Country" },
 ];
@@ -57,8 +60,14 @@ const CITY_PARENT_COUNTY: Record<string, string> = {
   "Tallinna linn": "Harju Maakond",
   "Tartu linn": "Tartu Maakond",
 };
-const EDUCATION_HELP_TEXT =
-  "Education follows RV0231U. Basic includes no education, primary, and lower secondary. Secondary includes general secondary and vocational secondary. Higher includes post-secondary professional, applied higher, bachelor's, master's, and doctorate.";
+const LANGUAGE_HELP_TEXT =
+  "Language uses Statistikaamet 2021 census mother tongue table RL21434. Simple grouping: Estonian, Russian, Other.";
+const EDUCATION_NOTES_ET = [
+  "Statistikaameti tabel: RV0231U.",
+  "Haridusjaotus eesti keeles: põhiharidus sisaldab hariduseta, alg- ja põhiharidust.",
+  "Keskharidus sisaldab üldkesk- ja kutsekeskharidust.",
+  "Kõrgharidus sisaldab keskeri-, rakendus-, bakalaureuse-, magistri- ja doktorikraadi.",
+];
 
 const geographyConflictDims = ["region", "tallinn_districts"];
 const cityOnlyConflictDims = ["education", "birth_country", "citizenship_country", "settlement_type"];
@@ -71,6 +80,56 @@ function prettyDim(key: string) {
   const hit = DIMENSIONS.find((d) => d.key === key);
   if (hit) return hit.label;
   return key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function inferSourceCodeForDimension(dim: string, meta?: QuotaMeta) {
+  const baseSource = meta?.base?.source;
+
+  if (dim === AGE_SEX_CROSS_KEY || dim === "sex" || dim === "age_group") {
+    return baseSource ?? null;
+  }
+  if (dim === "county") {
+    if (baseSource && ["RV022U", "RV0231U", "RL21434"].includes(baseSource)) {
+      return baseSource;
+    }
+    return "RV0240";
+  }
+  if (dim === "region" || dim === "settlement_type") {
+    return "RV0240";
+  }
+  if (dim === "tallinn_districts") {
+    if (baseSource && ["RV022U", "RL21434"].includes(baseSource)) {
+      return baseSource;
+    }
+    return "RV0240";
+  }
+  if (dim === "nationality") return "RV022U";
+  if (dim === "education") return "RV0231U";
+  if (dim === "language") return "RL21434";
+  if (dim === "birth_country") {
+    return meta?.sources?.find((source) => source.mode === "birth")?.source ?? "RV069U";
+  }
+  if (dim === "citizenship_country") {
+    return meta?.sources?.find((source) => source.mode === "citizenship")?.source ?? "RV069U";
+  }
+  return null;
+}
+
+function buildDisplayNotes(dim: string, notes: string[] | undefined, meta?: QuotaMeta) {
+  const out = [...(notes ?? [])];
+  const sourceCode = inferSourceCodeForDimension(dim, meta);
+  const sourceNote = sourceCode ? `Statistikaameti tabel: ${sourceCode}.` : null;
+  if (sourceNote && !out.includes(sourceNote)) {
+    out.push(sourceNote);
+  }
+  if (dim === "education" || meta?.base?.source === "RV0231U") {
+    for (const note of EDUCATION_NOTES_ET) {
+      if (!out.includes(note)) {
+        out.push(note);
+      }
+    }
+  }
+  return out;
 }
 
 function validateAgeBands(bands: AgeBandInput[]) {
@@ -111,6 +170,7 @@ export default function Page() {
   const [cityFilter, setCityFilter] = useState("");
   const [nationalityFilter, setNationalityFilter] = useState<NationalityFilter>("all");
   const [educationFilter, setEducationFilter] = useState<EducationFilter>("all");
+  const [languageFilter, setLanguageFilter] = useState<LanguageFilter>("all");
   const [countyOptions, setCountyOptions] = useState<CountyOption[]>([]);
 
   const [useCustomAgeGroups, setUseCustomAgeGroups] = useState(false);
@@ -121,6 +181,14 @@ export default function Page() {
     { from: 45, to: 54 },
     { from: 55, to: 64 },
     { from: 65, to: 74 },
+  ]);
+  const [customAgeGroupInputs, setCustomAgeGroupInputs] = useState<AgeBandTextInput[]>([
+    { from: "16", to: "24" },
+    { from: "25", to: "34" },
+    { from: "35", to: "44" },
+    { from: "45", to: "54" },
+    { from: "55", to: "64" },
+    { from: "65", to: "74" },
   ]);
 
   const [dims, setDims] = useState<string[]>(["sex", "age_group", "county", "region"]);
@@ -178,8 +246,11 @@ export default function Page() {
   }, [ageFrom, ageTo, customAgeGroups, useCustomAgeGroups]);
 
   const customAgeGroupsPreview = useMemo(
-    () => customAgeGroups.map((band) => `${band.from}-${band.to}`).join(", "),
-    [customAgeGroups]
+    () =>
+      customAgeGroupInputs
+        .map((band) => `${band.from || "…"}-${band.to || "…"}`)
+        .join(", "),
+    [customAgeGroupInputs]
   );
 
   const countyConflictDims = useMemo(() => {
@@ -228,8 +299,13 @@ export default function Page() {
   }, [activeLocationFilter, cityCountyConflictDims, cityCountySelected, cityFilter, countyConflictDims]);
 
   const sourceFilterMessage = useMemo(() => {
-    if (nationalityFilter !== "all" && educationFilter !== "all") {
-      return "Nationality Filter and Education Filter cannot be used together.";
+    const activeSourceFilters = [
+      nationalityFilter !== "all" ? "Nationality Filter" : null,
+      educationFilter !== "all" ? "Education Filter" : null,
+      languageFilter !== "all" ? "Language Filter" : null,
+    ].filter(Boolean);
+    if (activeSourceFilters.length > 1) {
+      return `${activeSourceFilters.join(", ")} cannot be used together.`;
     }
     if (nationalityFilter !== "all") {
       const allowed = new Set(["sex", "age_group", "county", "nationality", "tallinn_districts"]);
@@ -241,6 +317,21 @@ export default function Page() {
       }
       if (dims.includes("tallinn_districts") && activeLocationFilter && activeLocationFilter !== "Tallinna linn") {
         return "Nationality Filter can use Tallinn Districts only when County Filter is Tallinna linn.";
+      }
+    }
+    if (languageFilter !== "all") {
+      if (year !== 2021) {
+        return "Language Filter uses Statistikaamet 2021 census mother tongue table RL21434. Set Year to 2021 to continue.";
+      }
+      const allowed = new Set(["sex", "age_group", "county", "language", "tallinn_districts"]);
+      const unsupported = dims.filter((dim) => !allowed.has(dim));
+      if (unsupported.length > 0) {
+        return `Language Filter works only with Sex, Age Group, County, Language, and Tallinn Districts. Remove ${unsupported
+          .map(prettyDim)
+          .join(", ")} to continue.`;
+      }
+      if (dims.includes("tallinn_districts") && activeLocationFilter && activeLocationFilter !== "Tallinna linn") {
+        return "Language Filter can use Tallinn Districts only when County Filter is Tallinna linn.";
       }
     }
     if (educationFilter !== "all") {
@@ -258,13 +349,22 @@ export default function Page() {
         return "Education Filter does not support Tallinn Districts. Statistikaameti RV0231U table has no district-level breakdown.";
       }
     }
+    if (dims.includes("language") && languageFilter === "all" && year !== 2021) {
+      return "Language output uses Statistikaamet 2021 census mother tongue table RL21434. Set Year to 2021 to continue.";
+    }
     return null;
-  }, [activeLocationFilter, cityFilter, dims, educationFilter, nationalityFilter]);
+  }, [activeLocationFilter, cityFilter, dims, educationFilter, languageFilter, nationalityFilter, year]);
 
   const groupedAgeSourceMessage = useMemo(() => {
     if (nationalityFilter !== "all") {
       if (step === 1) {
         return "Nationality uses published 5-year age groups from Statistikaamet. 1-year grouping is not available there.";
+      }
+      return null;
+    }
+    if (languageFilter !== "all" || dims.includes("language")) {
+      if (step === 1) {
+        return "Language uses published 5-year age groups from Statistikaamet 2021 census table RL21434. 1-year grouping is not available there.";
       }
       return null;
     }
@@ -275,7 +375,7 @@ export default function Page() {
       return null;
     }
     return null;
-  }, [educationFilter, nationalityFilter, step]);
+  }, [dims, educationFilter, languageFilter, nationalityFilter, step]);
 
   const formWarningMessage = useMemo(() => {
     const parts = [countyConflictMessage, sourceFilterMessage].filter(Boolean);
@@ -343,6 +443,7 @@ export default function Page() {
       county_filter: activeLocationFilter || undefined,
       nationality_filter: nationalityFilter,
       education_filter: educationFilter,
+      language_filter: languageFilter,
       custom_age_groups: useCustomAgeGroups ? customAgeGroups : [],
     }),
     [
@@ -357,6 +458,7 @@ export default function Page() {
       cityFilter,
       nationalityFilter,
       educationFilter,
+      languageFilter,
       useCustomAgeGroups,
       customAgeGroups,
     ]
@@ -380,13 +482,13 @@ export default function Page() {
   }, [customAgeGroups, useCustomAgeGroups, ageFrom, ageTo]);
 
   useEffect(() => {
-    if (!useCustomAgeGroups) {
+    if (!useCustomAgeGroups && !Number.isNaN(ageFrom)) {
       setAgeFromInput(String(ageFrom));
     }
   }, [ageFrom, useCustomAgeGroups]);
 
   useEffect(() => {
-    if (!useCustomAgeGroups) {
+    if (!useCustomAgeGroups && !Number.isNaN(ageTo)) {
       setAgeToInput(String(ageTo));
     }
   }, [ageTo, useCustomAgeGroups]);
@@ -396,15 +498,7 @@ export default function Page() {
       return;
     }
     setter(value);
-    if (value !== "") {
-      numberSetter(Number(value));
-    }
-  }
-
-  function handleAgeInputBlur(value: string, setter: (value: string) => void, numberValue: number) {
-    if (value === "") {
-      setter(String(numberValue));
-    }
+    numberSetter(value === "" ? Number.NaN : Number(value));
   }
 
   function toggleDim(d: string) {
@@ -413,18 +507,41 @@ export default function Page() {
 
   function addCustomAgeGroup() {
     const last = customAgeGroups[customAgeGroups.length - 1];
-    const start = last ? last.to + 1 : ageFrom;
+    const start = last && !Number.isNaN(last.to) ? last.to + 1 : 16;
     setCustomAgeGroups((prev) => [...prev, { from: start, to: start + 9 }]);
+    setCustomAgeGroupInputs((prev) => [...prev, { from: String(start), to: String(start + 9) }]);
   }
 
-  function updateCustomAgeGroup(index: number, key: "from" | "to", value: number) {
-    setCustomAgeGroups((prev) =>
+  function updateCustomAgeGroup(index: number, key: "from" | "to", value: string) {
+    if (!/^\d*$/.test(value)) {
+      return;
+    }
+    setCustomAgeGroupInputs((prev) =>
       prev.map((band, i) => (i === index ? { ...band, [key]: value } : band))
+    );
+    setCustomAgeGroups((prev) =>
+      prev.map((band, i) => (i === index ? { ...band, [key]: value === "" ? Number.NaN : Number(value) } : band))
     );
   }
 
   function removeCustomAgeGroup(index: number) {
     setCustomAgeGroups((prev) => prev.filter((_, i) => i !== index));
+    setCustomAgeGroupInputs((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function handleCustomAgeGroupBlur(index: number, key: "from" | "to") {
+    setCustomAgeGroupInputs((prev) =>
+      prev.map((band, i) => {
+        if (i !== index) {
+          return band;
+        }
+        const currentNumeric = customAgeGroups[index]?.[key];
+        if (band[key] === "" && !Number.isNaN(currentNumeric)) {
+          return { ...band, [key]: String(currentNumeric) };
+        }
+        return band;
+      })
+    );
   }
 
   async function calculate() {
@@ -433,6 +550,11 @@ export default function Page() {
 
     if (useCustomAgeGroups && customAgeGroupsError) {
       setErr(customAgeGroupsError);
+      return;
+    }
+
+    if (Number.isNaN(effectiveAgeBand.from) || Number.isNaN(effectiveAgeBand.to)) {
+      setErr("Age From and Age To must be filled in.");
       return;
     }
 
@@ -517,9 +639,8 @@ export default function Page() {
             <input
               type="text"
               inputMode="numeric"
-              value={useCustomAgeGroups ? String(effectiveAgeBand.from) : ageFromInput}
+              value={useCustomAgeGroups ? (Number.isNaN(effectiveAgeBand.from) ? "" : String(effectiveAgeBand.from)) : ageFromInput}
               onChange={(e) => handleAgeInputChange(e.target.value, setAgeFromInput, setAgeFrom)}
-              onBlur={() => handleAgeInputBlur(ageFromInput, setAgeFromInput, ageFrom)}
               style={{ width: "100%", border: `1px solid ${THEME.border}`, borderRadius: 10, padding: "10px 12px" }}
               disabled={useCustomAgeGroups}
             />
@@ -530,9 +651,8 @@ export default function Page() {
             <input
               type="text"
               inputMode="numeric"
-              value={useCustomAgeGroups ? String(effectiveAgeBand.to) : ageToInput}
+              value={useCustomAgeGroups ? (Number.isNaN(effectiveAgeBand.to) ? "" : String(effectiveAgeBand.to)) : ageToInput}
               onChange={(e) => handleAgeInputChange(e.target.value, setAgeToInput, setAgeTo)}
-              onBlur={() => handleAgeInputBlur(ageToInput, setAgeToInput, ageTo)}
               style={{ width: "100%", border: `1px solid ${THEME.border}`, borderRadius: 10, padding: "10px 12px" }}
               disabled={useCustomAgeGroups}
             />
@@ -631,6 +751,16 @@ export default function Page() {
               <option value="higher">Higher</option>
             </select>
           </label>
+
+          <label>
+            <div style={{ fontSize: 12, color: THEME.textMuted }}>Language Filter</div>
+            <select value={languageFilter} onChange={(e) => setLanguageFilter(e.target.value as LanguageFilter)} style={{ width: "100%", border: `1px solid ${THEME.border}`, borderRadius: 10, padding: "10px 12px" }}>
+              <option value="all">All languages</option>
+              <option value="estonian">Estonian</option>
+              <option value="russian">Russian</option>
+              <option value="other">Other</option>
+            </select>
+          </label>
         </div>
 
         {cityFilter ? (
@@ -640,7 +770,7 @@ export default function Page() {
         ) : null}
 
         <div style={{ marginTop: 10, fontSize: 12, color: THEME.textMuted }}>
-          {EDUCATION_HELP_TEXT}
+          {LANGUAGE_HELP_TEXT}
         </div>
 
         <div style={{ marginTop: 16, border: `1px solid ${THEME.border}`, borderRadius: 14, padding: 14, background: THEME.brandSoft }}>
@@ -663,9 +793,11 @@ export default function Page() {
                     <label>
                       <div style={{ fontSize: 12, color: THEME.textMuted }}>From</div>
                       <input
-                        type="number"
-                        value={band.from}
-                        onChange={(e) => updateCustomAgeGroup(index, "from", +e.target.value)}
+                        type="text"
+                        inputMode="numeric"
+                        value={customAgeGroupInputs[index]?.from ?? ""}
+                        onChange={(e) => updateCustomAgeGroup(index, "from", e.target.value)}
+                        onBlur={() => handleCustomAgeGroupBlur(index, "from")}
                         style={{ width: "100%", border: `1px solid ${THEME.border}`, borderRadius: 10, padding: "10px 12px" }}
                       />
                     </label>
@@ -673,9 +805,11 @@ export default function Page() {
                     <label>
                       <div style={{ fontSize: 12, color: THEME.textMuted }}>To</div>
                       <input
-                        type="number"
-                        value={band.to}
-                        onChange={(e) => updateCustomAgeGroup(index, "to", +e.target.value)}
+                        type="text"
+                        inputMode="numeric"
+                        value={customAgeGroupInputs[index]?.to ?? ""}
+                        onChange={(e) => updateCustomAgeGroup(index, "to", e.target.value)}
+                        onBlur={() => handleCustomAgeGroupBlur(index, "to")}
                         style={{ width: "100%", border: `1px solid ${THEME.border}`, borderRadius: 10, padding: "10px 12px" }}
                       />
                     </label>
@@ -813,11 +947,11 @@ export default function Page() {
             <div key={dim} style={{ border: `1px solid ${THEME.border}`, borderRadius: 14, padding: 16, marginBottom: 16, background: "#fff" }}>
               <div style={{ fontSize: 20, fontWeight: 800, marginBottom: 6, color: THEME.brandDark }}>{prettyDim(dim)}</div>
 
-              {res.notes?.length ? (
+              {buildDisplayNotes(dim, res.notes, data.meta).length ? (
                 <div style={{ marginBottom: 10 }}>
                   <div style={{ fontSize: 12, color: THEME.textMuted, marginBottom: 6 }}>Notes / warnings</div>
                   <ul style={{ margin: 0, paddingLeft: 18 }}>
-                    {res.notes.map((note, index) => (
+                    {buildDisplayNotes(dim, res.notes, data.meta).map((note, index) => (
                       <li key={index} style={{ fontSize: 13, marginBottom: 4 }}>
                         {note}
                       </li>
@@ -862,11 +996,11 @@ export default function Page() {
           {ageSexCrossResult && ageSexCrossMatrix ? (
             <div style={{ border: `1px solid ${THEME.border}`, borderRadius: 14, padding: 16, marginBottom: 16, background: "#fff" }}>
               <div style={{ fontSize: 20, fontWeight: 800, marginBottom: 6, color: THEME.brandDark }}>Age × Sex Cross Quotas</div>
-              {ageSexCrossResult.notes?.length ? (
+              {buildDisplayNotes(AGE_SEX_CROSS_KEY, ageSexCrossResult.notes, data.meta).length ? (
                 <div style={{ marginBottom: 10 }}>
                   <div style={{ fontSize: 12, color: THEME.textMuted, marginBottom: 6 }}>Notes / warnings</div>
                   <ul style={{ margin: 0, paddingLeft: 18 }}>
-                    {ageSexCrossResult.notes.map((note, index) => (
+                    {buildDisplayNotes(AGE_SEX_CROSS_KEY, ageSexCrossResult.notes, data.meta).map((note, index) => (
                       <li key={index} style={{ fontSize: 13, marginBottom: 4 }}>
                         {note}
                       </li>
@@ -882,6 +1016,7 @@ export default function Page() {
                   <thead>
                     <tr>
                       <th style={{ textAlign: "left", borderBottom: `1px solid ${THEME.border}`, padding: "6px 8px", color: THEME.textMuted }}>Sex</th>
+                      <th style={{ textAlign: "left", borderBottom: `1px solid ${THEME.border}`, padding: "6px 8px", color: THEME.textMuted }}>Metric</th>
                       {ageSexCrossMatrix.ageLabels.map((ageLabel) => (
                         <th key={ageLabel} style={{ textAlign: "right", borderBottom: `1px solid ${THEME.border}`, padding: "6px 8px", color: THEME.textMuted }}>
                           {ageLabel}
@@ -890,19 +1025,45 @@ export default function Page() {
                     </tr>
                   </thead>
                   <tbody>
-                    {ageSexCrossMatrix.sexLabels.map((sexLabel) => (
-                      <tr key={sexLabel}>
-                        <td style={{ borderBottom: `1px solid ${THEME.brandSoft}`, padding: "6px 8px", fontWeight: 700 }}>{sexLabel}</td>
-                        {ageSexCrossMatrix.ageLabels.map((ageLabel) => {
-                          const cell = ageSexCrossMatrix.valueMap[`${sexLabel}__${ageLabel}`];
-                          return (
-                            <td key={`${sexLabel}-${ageLabel}`} style={{ borderBottom: `1px solid ${THEME.brandSoft}`, padding: "6px 8px", textAlign: "right" }}>
-                              {cell ? `${cell.quota} (${(cell.share * 100).toFixed(1)}%)` : "0"}
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    ))}
+                    {ageSexCrossMatrix.sexLabels.flatMap((sexLabel) => {
+                      const metrics = [
+                        { key: "population", label: "Population" },
+                        { key: "share", label: "Share %" },
+                        { key: "quota", label: "Quota" },
+                      ];
+                      return metrics.map((metric, metricIndex) => (
+                        <tr key={`${sexLabel}-${metric.key}`}>
+                          <td style={{ borderBottom: `1px solid ${THEME.brandSoft}`, padding: "6px 8px", fontWeight: metricIndex === 0 ? 700 : 500 }}>
+                            {metricIndex === 0 ? sexLabel : ""}
+                          </td>
+                          <td style={{ borderBottom: `1px solid ${THEME.brandSoft}`, padding: "6px 8px", color: THEME.textMuted }}>
+                            {metric.label}
+                          </td>
+                          {ageSexCrossMatrix.ageLabels.map((ageLabel) => {
+                            const cell = ageSexCrossMatrix.valueMap[`${sexLabel}__${ageLabel}`];
+                            let value = "0";
+                            if (cell) {
+                              if (metric.key === "population") value = cell.pop.toLocaleString();
+                              if (metric.key === "share") value = (cell.share * 100).toFixed(2);
+                              if (metric.key === "quota") value = String(cell.quota);
+                            }
+                            return (
+                              <td
+                                key={`${sexLabel}-${metric.key}-${ageLabel}`}
+                                style={{
+                                  borderBottom: `1px solid ${THEME.brandSoft}`,
+                                  padding: "6px 8px",
+                                  textAlign: "right",
+                                  fontWeight: metric.key === "quota" ? 700 : 400,
+                                }}
+                              >
+                                {value}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ));
+                    })}
                   </tbody>
                 </table>
               </div>
