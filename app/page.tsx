@@ -61,14 +61,10 @@ const CITY_PARENT_COUNTY: Record<string, string> = {
   "Tallinna linn": "Harju Maakond",
   "Tartu linn": "Tartu Maakond",
 };
-const LANGUAGE_HELP_TEXT =
-  "Language uses Statistikaamet 2021 census mother tongue table RL21434. Simple grouping: Estonian, Russian, Other.";
 const EDUCATION_NOTES_BILINGUAL = [
-  "Education breakdown in English: Basic includes no education, primary, and lower secondary. Secondary includes general secondary and vocational secondary. Higher includes post-secondary professional, applied higher, bachelor's, master's, and doctorate.",
-  "Haridusjaotus eesti keeles: p?hiharidus sisaldab hariduseta, alg- ja p?hiharidust.",
-  "Keskharidus sisaldab ?ldkesk- ja kutsekeskharidust.",
-  "K?rgharidus sisaldab keskeri-, rakendus-, bakalaureuse-, magistri- ja doktorikraadi.",
-]
+  "Education levels are divided using the ISCED-2011 specification.",
+  "Haridustasemed on jaotatud ISCED-2011 spetsifikatsiooni alusel.",
+];
 
 const geographyConflictDims = ["region", "tallinn_districts"];
 const cityOnlyConflictDims = ["education", "birth_country", "citizenship_country", "settlement_type"];
@@ -360,28 +356,6 @@ export default function Page() {
     return null;
   }, [dims, educationFilter, hasOnlyTallinnLocation, languageFilter, locationFilters.length, nationalityFilter, selectedCityFilters, year]);
 
-  const groupedAgeSourceMessage = useMemo(() => {
-    if (nationalityFilter !== "all") {
-      if (step === 1) {
-        return "Nationality uses published 5-year age groups from Statistikaamet. 1-year grouping is not available there.";
-      }
-      return null;
-    }
-    if (dims.includes("language")) {
-      if (step === 1) {
-        return "Language uses published 5-year age groups from Statistikaamet 2021 census table RL21434. 1-year grouping is not available there.";
-      }
-      return null;
-    }
-    if (educationFilter !== "all") {
-      if (step === 1) {
-        return "Education uses published 5-year age groups from Statistikaamet. 1-year grouping is not available there.";
-      }
-      return null;
-    }
-    return null;
-  }, [dims, educationFilter, languageFilter, nationalityFilter, step]);
-
   const formWarningMessage = useMemo(() => {
     const parts = [countyConflictMessage, sourceFilterMessage].filter(Boolean);
     if (!parts.length) {
@@ -389,21 +363,6 @@ export default function Page() {
     }
     return parts.join(" ");
   }, [countyConflictMessage, sourceFilterMessage]);
-
-  const visibleMetaErrors = useMemo(() => {
-    const entries = Object.entries(data?.meta?.errors ?? {});
-    return Object.fromEntries(
-      entries.filter(([key, value]) => {
-        const detail = value as MetaError;
-        const expectedCountyConflict =
-          locationFilters.length > 0 &&
-          geographyConflictDims.includes(key) &&
-          typeof detail?.msg === "string" &&
-          detail.msg.includes("county_filter is not supported");
-        return !expectedCountyConflict;
-      })
-    );
-  }, [data, locationFilters.length]);
 
   const regularResults = useMemo(
     () => Object.entries(data?.results ?? {}).filter(([dim]) => dim !== AGE_SEX_CROSS_KEY),
@@ -751,13 +710,7 @@ export default function Page() {
             </div>
         ) : null}
 
-        {dims.includes("language") ? (
-          <div style={{ marginTop: 10, fontSize: 12, color: THEME.textMuted }}>
-          {LANGUAGE_HELP_TEXT}
-          </div>
-        ) : null}
-
-        <div style={{ marginTop: 16, border: `1px solid ${THEME.border}`, borderRadius: 14, padding: 14, background: THEME.brandSoft }}>
+          <div style={{ marginTop: 16, border: `1px solid ${THEME.border}`, borderRadius: 14, padding: 14, background: THEME.brandSoft }}>
           <label style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 700 }}>
             <input type="checkbox" checked={useCustomAgeGroups} onChange={(e) => setUseCustomAgeGroups(e.target.checked)} />
             Use custom age groups
@@ -865,14 +818,9 @@ export default function Page() {
         </div>
 
         <div style={{ marginTop: 14, display: "grid", gap: 8 }}>
-          {groupedAgeSourceMessage ? (
-            <div style={{ fontSize: 13, padding: 10, borderRadius: 10, background: THEME.brandSoft, border: `1px solid ${THEME.border}` }}>
-              {groupedAgeSourceMessage}
-            </div>
-          ) : null}
-          {formWarningMessage ? (
-            <div style={{ fontSize: 13, padding: 10, borderRadius: 10, background: THEME.warningBg, border: `1px solid ${THEME.warningBorder}` }}>
-              {formWarningMessage}
+            {formWarningMessage ? (
+              <div style={{ fontSize: 13, padding: 10, borderRadius: 10, background: THEME.warningBg, border: `1px solid ${THEME.warningBorder}` }}>
+                {formWarningMessage}
             </div>
           ) : null}
         </div>
@@ -1054,12 +1002,6 @@ export default function Page() {
             </div>
           ) : null}
 
-          {Object.keys(visibleMetaErrors).length > 0 ? (
-            <div style={{ border: `1px solid ${THEME.dangerBorder}`, borderRadius: 14, padding: 16, background: THEME.dangerBg }}>
-              <div style={{ fontWeight: 800, marginBottom: 6 }}>Some dimensions failed</div>
-              <pre style={{ margin: 0, overflow: "auto" }}>{JSON.stringify(visibleMetaErrors, null, 2)}</pre>
-            </div>
-          ) : null}
         </>
       ) : null}
     </main>
