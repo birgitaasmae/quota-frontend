@@ -266,10 +266,10 @@ export default function Page() {
   const overlappingLocationMessage = useMemo(() => {
     const selected = new Set(locationFilters);
     if (selected.has("Harju Maakond") && selected.has("Tallinna linn")) {
-      return "Do not select Harju Maakond together with Tallinna linn, because Tallinn is already inside Harju county and would be double-counted.";
+      return "Harju Maakond + Tallinna linn is allowed: county results will show Harju Maakond without Tallinna linn and Tallinna linn separately, without double-counting totals.";
     }
     if (selected.has("Tartu Maakond") && selected.has("Tartu linn")) {
-      return "Do not select Tartu Maakond together with Tartu linn, because Tartu city is already inside Tartu county and would be double-counted.";
+      return "Tartu Maakond + Tartu linn is allowed: county results will show Tartu Maakond without Tartu linn and Tartu linn separately, without double-counting totals.";
     }
     return null;
   }, [locationFilters]);
@@ -382,12 +382,12 @@ export default function Page() {
   }, [dims, educationFilter, languageFilter, nationalityFilter, step]);
 
   const formWarningMessage = useMemo(() => {
-    const parts = [overlappingLocationMessage, countyConflictMessage, sourceFilterMessage].filter(Boolean);
+    const parts = [countyConflictMessage, sourceFilterMessage].filter(Boolean);
     if (!parts.length) {
       return null;
     }
     return parts.join(" ");
-  }, [countyConflictMessage, overlappingLocationMessage, sourceFilterMessage]);
+  }, [countyConflictMessage, sourceFilterMessage]);
 
   const visibleMetaErrors = useMemo(() => {
     const entries = Object.entries(data?.meta?.errors ?? {});
