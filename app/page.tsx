@@ -56,6 +56,7 @@ const THEME = {
 };
 
 const AGE_SEX_CROSS_KEY = "age_sex_cross";
+const ALL_COUNTIES_OPTION: CountyOption = { code: "__all_counties__", label: "All counties" };
 const CITY_PARENT_COUNTY: Record<string, string> = {
   "Tallinna linn": "Harju Maakond",
   "Tartu linn": "Tartu Maakond",
@@ -203,7 +204,7 @@ export default function Page() {
       try {
         const js = await getJson<CountyOptionsResponse>("/v1/options/counties");
         if (active) {
-          setCountyOptions(js.items);
+          setCountyOptions([ALL_COUNTIES_OPTION, ...js.items.filter((item) => item.label !== ALL_COUNTIES_OPTION.label)]);
         }
       } catch (e: any) {
         if (active) {
@@ -690,16 +691,20 @@ export default function Page() {
           </label>
 
           <label>
-            <div style={{ fontSize: 12, color: THEME.textMuted }}>Location Filter</div>
+            <div style={{ fontSize: 12, color: THEME.textMuted }}>County Filter</div>
             <select
-              multiple
-              value={locationFilters}
-              onChange={(e) => {
-                const values = Array.from(e.target.selectedOptions).map((option) => option.value);
-                setLocationFilters(values);
-              }}
-              style={{ width: "100%", minHeight: 140, border: `1px solid ${THEME.border}`, borderRadius: 10, padding: "10px 12px" }}
-            >
+                multiple
+                value={locationFilters}
+                onChange={(e) => {
+                  const values = Array.from(e.target.selectedOptions).map((option) => option.value);
+                  if (values.includes(ALL_COUNTIES_OPTION.label)) {
+                    setLocationFilters([]);
+                    return;
+                  }
+                  setLocationFilters(values);
+                }}
+                style={{ width: "100%", minHeight: 140, border: `1px solid ${THEME.border}`, borderRadius: 10, padding: "10px 12px" }}
+              >
               {countyOptions.map((option) => (
                 <option key={option.code} value={option.label}>
                   {option.label}
@@ -742,8 +747,8 @@ export default function Page() {
 
         {selectedCityFilters.length > 0 ? (
           <div style={{ marginTop: 10, fontSize: 12, color: THEME.textMuted }}>
-            Cities stay inside the same Location Filter list. Do not select a city together with its parent county, or the same population would be counted twice.
-          </div>
+              Cities stay inside the same County Filter list. Do not select a city together with its parent county, or the same population would be counted twice.
+            </div>
         ) : null}
 
         {dims.includes("language") ? (
