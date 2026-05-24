@@ -62,12 +62,12 @@ const CITY_PARENT_COUNTY: Record<string, string> = {
 };
 const LANGUAGE_HELP_TEXT =
   "Language uses Statistikaamet 2021 census mother tongue table RL21434. Simple grouping: Estonian, Russian, Other.";
-const EDUCATION_NOTES_ET = [
-  "Statistikaameti tabel: RV0231U.",
-  "Haridusjaotus eesti keeles: põhiharidus sisaldab hariduseta, alg- ja põhiharidust.",
-  "Keskharidus sisaldab üldkesk- ja kutsekeskharidust.",
-  "Kõrgharidus sisaldab keskeri-, rakendus-, bakalaureuse-, magistri- ja doktorikraadi.",
-];
+const EDUCATION_NOTES_BILINGUAL = [
+  "Education breakdown in English: Basic includes no education, primary, and lower secondary. Secondary includes general secondary and vocational secondary. Higher includes post-secondary professional, applied higher, bachelor's, master's, and doctorate.",
+  "Haridusjaotus eesti keeles: p?hiharidus sisaldab hariduseta, alg- ja p?hiharidust.",
+  "Keskharidus sisaldab ?ldkesk- ja kutsekeskharidust.",
+  "K?rgharidus sisaldab keskeri-, rakendus-, bakalaureuse-, magistri- ja doktorikraadi.",
+]
 
 const geographyConflictDims = ["region", "tallinn_districts"];
 const cityOnlyConflictDims = ["education", "birth_country", "citizenship_country", "settlement_type"];
@@ -118,12 +118,12 @@ function inferSourceCodeForDimension(dim: string, meta?: QuotaMeta) {
 function buildDisplayNotes(dim: string, notes: string[] | undefined, meta?: QuotaMeta) {
   const out = [...(notes ?? [])];
   const sourceCode = inferSourceCodeForDimension(dim, meta);
-  const sourceNote = sourceCode ? `Statistikaameti tabel: ${sourceCode}.` : null;
+  const sourceNote = sourceCode ? `Statistics Estonia table: ${sourceCode}.` : null;
   if (sourceNote && !out.includes(sourceNote)) {
     out.push(sourceNote);
   }
   if (dim === "education" || meta?.base?.source === "RV0231U") {
-    for (const note of EDUCATION_NOTES_ET) {
+    for (const note of EDUCATION_NOTES_BILINGUAL) {
       if (!out.includes(note)) {
         out.push(note);
       }
